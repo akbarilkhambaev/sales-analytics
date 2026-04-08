@@ -1,0 +1,77 @@
+name: CI — Tests & Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Backend: Django tests
+  # ─────────────────────────────────────────────────────────────────
+  backend-tests:
+    name: Backend (Django)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production
+          DEBUG: "True"
+          # Без DB_NAME → Django использует SQLite (тесты быстрее)
+        run: |
+          python manage.py test api authentication --verbosity=2
+
+      - name: Check migrations are not missing
+        working-directory: backend
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production
+          DEBUG: "True"
+        run: |
+          python manage.py migrate --check --dry-run 2>/dev/null || \
+          python manage.py makemigrations --check --dry-run
+
+  # ─────────────────────────────────────────────────────────────────
+  # Frontend: build check
+  # ─────────────────────────────────────────────────────────────────
+  frontend-build:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost
+        run: npm run build
