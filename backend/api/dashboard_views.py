@@ -2,8 +2,9 @@
 Views для дашборда с метриками и аналитикой
 """
 
-from django.db.models import Sum, Count, Q, F, FloatField
-from django.db.models.functions import Cast, Substr, TruncMonth, TruncDate
+from django.db.models import Sum, Count, Q, F
+from django.db.models.functions import Substr, TruncMonth, TruncDate
+from .utils import safe_kol_vo_sum
 from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -51,7 +52,7 @@ class DashboardMetricsView(APIView):
             
             # 1. Общий объем продаж (из Sale.dopoln_kol_vo)
             total_sales = sales_qs.aggregate(
-                total=Sum(Cast('dopoln_kol_vo', FloatField()))
+                total=safe_kol_vo_sum()
             )['total'] or 0
             
             # 2. Количество уникальных продуктов
@@ -96,7 +97,7 @@ class DashboardMetricsView(APIView):
             trend = queryset.annotate(
                 year_month=Substr('data', 1, 7)  # YYYY-MM
             ).values('year_month').annotate(
-                volume=Sum(Cast('dopoln_kol_vo', FloatField()))
+                volume=safe_kol_vo_sum()
             ).order_by('year_month')
             
             return [
@@ -137,7 +138,7 @@ class DashboardMetricsView(APIView):
             top = queryset.filter(
                 kod_tovara__isnull=False
             ).exclude(kod_tovara='').values('kod_tovara', 'tovary').annotate(
-                volume=Sum(Cast('dopoln_kol_vo', FloatField()))
+                volume=safe_kol_vo_sum()
             ).order_by('-volume')[:limit]
             
             return [
@@ -157,7 +158,7 @@ class DashboardMetricsView(APIView):
             top = queryset.filter(
                 region__isnull=False
             ).exclude(region='').values('region').annotate(
-                volume=Sum(Cast('dopoln_kol_vo', FloatField()))
+                volume=safe_kol_vo_sum()
             ).order_by('-volume')[:limit]
             
             return [
@@ -176,7 +177,7 @@ class DashboardMetricsView(APIView):
             groups = queryset.filter(
                 gruppa_tovara__isnull=False
             ).exclude(gruppa_tovara='').values('gruppa_tovara').annotate(
-                volume=Sum(Cast('dopoln_kol_vo', FloatField()))
+                volume=safe_kol_vo_sum()
             ).order_by('-volume')
             
             return [
@@ -252,7 +253,7 @@ class SalesComparisonView(APIView):
         sales_qs = Sale.objects.filter(data__gte=start_date, data__lte=end_date)
         
         sales_volume = sales_qs.aggregate(
-            total=Sum(Cast('dopoln_kol_vo', FloatField()))
+            total=safe_kol_vo_sum()
         )['total'] or 0
         
         return {

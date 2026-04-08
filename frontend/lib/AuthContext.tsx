@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
 interface User {
   id: number;
   username: string;
@@ -59,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/token/refresh/', {
+      const response = await fetch(`${API_BASE}/auth/token/refresh/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (username: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/token/', {
+      const response = await fetch(`${API_BASE}/auth/token/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Пытаемся blacklist токен на сервере
       if (refreshToken && accessToken) {
-        await fetch('http://localhost:8000/api/auth/users/logout/', {
+        await fetch(`${API_BASE}/auth/users/logout/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -14,7 +14,7 @@ echo " 1. Обновление системы и установка зависи
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 apt update && apt upgrade -y
 apt install -y python3 python3-venv python3-pip postgresql postgresql-contrib \
-               nginx nodejs npm curl git redis-server
+               nginx nodejs curl git redis-server
 
 systemctl enable redis-server
 systemctl start redis-server

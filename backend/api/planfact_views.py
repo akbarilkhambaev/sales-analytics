@@ -13,8 +13,8 @@ from collections import defaultdict
 from datetime import date
 
 from django.core.cache import cache
-from django.db.models import Sum, FloatField, Q
-from django.db.models.functions import Cast
+from django.db.models import Sum, Q
+from .utils import safe_kol_vo_sum
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -144,7 +144,7 @@ class PlanFactViewSet(viewsets.ViewSet):
                 base_sales
                 .filter(data__gte=from_d.isoformat(), data__lte=to_d.isoformat())
                 .values('kod_tovara')
-                .annotate(total=Sum(Cast('dopoln_kol_vo', FloatField())))
+                .annotate(total=safe_kol_vo_sum())
             )
             return {r['kod_tovara']: float(r['total'] or 0) for r in rows}
 

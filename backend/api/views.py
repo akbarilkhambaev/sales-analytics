@@ -1,5 +1,6 @@
-from django.db.models import Sum, Q, F, FloatField
-from django.db.models.functions import Cast, Substr
+from django.db.models import Sum, Q, F
+from django.db.models.functions import Substr
+from .utils import safe_kol_vo_sum
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets, status
@@ -108,7 +109,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         aggregated = queryset.annotate(
             year=Substr('data', 1, 4)
         ).values('kod_tovara', 'year').annotate(
-            total=Sum(Cast('dopoln_kol_vo', FloatField()))
+            total=safe_kol_vo_sum()
         ).order_by('kod_tovara', 'year')
 
         # Организуем данные
@@ -184,7 +185,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         aggregated = queryset.annotate(
             year=Substr('data', 1, 4)
         ).values('gruppa_tovara', 'year').annotate(
-            total=Sum(Cast('dopoln_kol_vo', FloatField()))
+            total=safe_kol_vo_sum()
         ).order_by('gruppa_tovara', 'year')
 
         # Организуем данные
@@ -269,7 +270,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         ).values(
             'kod_tovara', 'profil_perechen', 'year'
         ).annotate(
-            total=Sum(Cast('dopoln_kol_vo', FloatField()))
+            total=safe_kol_vo_sum()
         ).order_by('kod_tovara', 'profil_perechen', 'year')
 
         # Структурируем данные
@@ -356,7 +357,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         ).values(
             'cvet', 'kod_tovara', 'year'
         ).annotate(
-            total=Sum(Cast('dopoln_kol_vo', FloatField()))
+            total=safe_kol_vo_sum()
         ).order_by('cvet', 'kod_tovara', 'year')
 
         # Структурируем данные
@@ -463,7 +464,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         ).values(
             'kod_tovara', 'cvet', 'year'
         ).annotate(
-            total=Sum(Cast('dopoln_kol_vo', FloatField()))
+            total=safe_kol_vo_sum()
         ).order_by('kod_tovara', 'cvet', 'year')
 
         # Структурируем данные
