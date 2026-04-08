@@ -38,8 +38,9 @@ export default function DashboardPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const currentYear = new Date().getFullYear();
+  const [startDate, setStartDate] = useState(`${currentYear}-01-01`);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -49,7 +50,7 @@ export default function DashboardPage() {
       return;
     }
 
-    loadMetrics();
+    loadMetrics({ start_date: startDate, end_date: endDate });
   }, [isAuthenticated, authLoading, router]);
 
   const loadMetrics = async (dateParams?: { start_date?: string; end_date?: string }) => {
@@ -72,9 +73,11 @@ export default function DashboardPage() {
   };
 
   const handleResetFilters = () => {
-    setStartDate('');
-    setEndDate('');
-    loadMetrics();
+    const reset_start = `${currentYear}-01-01`;
+    const reset_end = new Date().toISOString().split('T')[0];
+    setStartDate(reset_start);
+    setEndDate(reset_end);
+    loadMetrics({ start_date: reset_start, end_date: reset_end });
   };
 
   if (authLoading || loading) {
