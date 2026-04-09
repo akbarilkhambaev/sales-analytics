@@ -28,6 +28,7 @@ import {
   ClipboardList,
   TrendingUp,
   Settings2,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -58,7 +59,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/groups',     label: 'По группам',        icon: Tag,         color: 'text-green-500' },
       { href: '/hierarchy',  label: 'Перечень товаров',  icon: PackageOpen, color: 'text-purple-500' },
       { href: '/colors',     label: 'Продукты по цветам',icon: Palette,     color: 'text-orange-500' },
-      { href: '/clients',    label: 'Клиентская база',   icon: Users,       color: 'text-pink-500' },
+      { href: '/clients',         label: 'Клиентская база',   icon: Users,       color: 'text-pink-500' },
+      { href: '/analytics/abc',  label: 'ABC-анализ',        icon: TrendingUp,  color: 'text-teal-500' },
     ],
   },
   {
@@ -162,10 +164,10 @@ export default function Sidebar() {
               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
             ${collapsed ? 'justify-center' : ''}
           `}
-          title={collapsed ? 'Главная' : undefined}
+          title={collapsed ? 'Карта продаж' : undefined}
         >
-          <Home className="w-4 h-4 shrink-0 text-gray-400" />
-          {!collapsed && <span>Главная</span>}
+          <MapPin className="w-4 h-4 shrink-0 text-blue-500" />
+          {!collapsed && <span>Карта продаж</span>}
         </Link>
       </div>
 

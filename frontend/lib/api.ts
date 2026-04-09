@@ -195,6 +195,54 @@ class ApiClient {
     return this.fetch<SalesComparison>('/dashboard/comparison/', params);
   }
 
+  // ─── АНАЛИТИКА ───────────────────────────────────────────────────────────────
+
+  getABCAnalysis(params: { groupby?: string; start_date?: string; end_date?: string; limit?: number }): Promise<{
+    items: { rank: number; name: string; volume: number; pct: number; cumulative: number; category: 'A' | 'B' | 'C' }[];
+    summary: { a_count: number; b_count: number; c_count: number; a_volume: number; b_volume: number; c_volume: number; a_pct: number; b_pct: number; c_pct: number };
+    total: number;
+  }> {
+    return this.fetch('/analytics/abc/', params as Record<string, string>);
+  }
+
+  getMonthlyTrend(params: { groupby?: string; values?: string; start_date?: string; end_date?: string }): Promise<{
+    months: string[];
+    series: { name: string; data: number[] }[];
+  }> {
+    return this.fetch('/analytics/monthly-trend/', params as Record<string, string>);
+  }
+
+  getRegionMap(params: { year?: number; month?: number; gruppa?: string; kod?: string }): Promise<{
+    regions: { name: string; volume: number; pct: number; rank: number }[];
+    warehouses: { name: string; volume: number; regions: { name: string; volume: number }[] }[];
+    total: number;
+    period: string;
+  }> {
+    const p: Record<string, string> = {};
+    if (params.year)   p.year   = String(params.year);
+    if (params.month)  p.month  = String(params.month);
+    if (params.gruppa) p.gruppa = params.gruppa;
+    if (params.kod)    p.kod    = params.kod;
+    return this.fetch('/analytics/region-map/', p);
+  }
+
+  getRegionMapFilters(gruppa?: string): Promise<{ groups: string[]; codes: string[] }> {
+    const p: Record<string, string> = {};
+    if (gruppa) p.gruppa = gruppa;
+    return this.fetch('/analytics/region-map/filters/', p);
+  }
+
+  getMarketData(): Promise<{
+    usd_uzs:          number | null;
+    usd_date:         string | null;
+    usd_error?:       string;
+    aluminum_price:   number | null;
+    aluminum_unit:    string;
+    aluminum_error?:  string;
+  }> {
+    return this.fetch('/market/data/', {});
+  }
+
   // Expense Management
   async getExpenses(filters?: ExpenseFilters): Promise<Expense[]> {
     const params: Record<string, string> = {};

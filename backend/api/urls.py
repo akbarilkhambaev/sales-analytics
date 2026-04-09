@@ -10,6 +10,8 @@ from .catalog_views import ProductCatalogViewSet
 from .clientcard_views import ClientCardViewSet
 from .visitreport_views import ClientVisitReportViewSet
 from .planfact_views import PlanFactViewSet
+from .analytics_views import ABCAnalysisView, MonthlyTrendView, RegionMapView, RegionMapFiltersView
+from .market_views import MarketDataView
 from .kanban_views import KanbanColumnViewSet, KanbanTaskViewSet, KanbanUsersView
 from .kpi_views import (
     KPITemplateViewSet, KPITemplateItemViewSet,
@@ -51,6 +53,11 @@ urlpatterns = [
     path('tovary-mapping/apply/', TovaryMappingApplyView.as_view(), name='tovary-mapping-apply'),
     path('dashboard/metrics/', DashboardMetricsView.as_view(), name='dashboard-metrics'),
     path('dashboard/comparison/', SalesComparisonView.as_view(), name='sales-comparison'),
+    path('analytics/abc/', ABCAnalysisView.as_view(), name='analytics-abc'),
+    path('analytics/monthly-trend/', MonthlyTrendView.as_view(), name='analytics-monthly-trend'),
+    path('analytics/region-map/', RegionMapView.as_view(), name='analytics-region-map'),
+    path('analytics/region-map/filters/', RegionMapFiltersView.as_view(), name='analytics-region-map-filters'),
+    path('market/data/', MarketDataView.as_view(), name='market-data'),
     path('kpi/summary/', KPISummaryView.as_view(), name='kpi-summary'),
     path('kpi/managers/', KPIManagersView.as_view(), name='kpi-managers'),
 ]
