@@ -31,19 +31,26 @@ export default function TovaryMappingPage() {
   const [applyResult, setApplyResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uncodedOpen, setUncodedOpen] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [count, setCount] = useState(0);
+  const PER_PAGE = 50;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (s: string, coded: 'all' | 'true' | 'false') => {
+  const load = useCallback(async (s: string, coded: 'all' | 'true' | 'false', p = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const params: { search?: string; coded?: 'true' | 'false' } = {};
+      const params: { search?: string; coded?: 'true' | 'false'; page?: number; per_page?: number } = { page: p, per_page: PER_PAGE };
       if (s) params.search = s;
       if (coded !== 'all') params.coded = coded;
       const data = await apiClient.getTovaryMapping(params);
       setItems(data.results);
       setTotal(data.total);
       setUncoded(data.uncoded);
+      setPage(data.page);
+      setPages(data.pages);
+      setCount(data.count);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки');
     } finally {
@@ -52,18 +59,23 @@ export default function TovaryMappingPage() {
   }, []);
 
   useEffect(() => {
-    load(search, filterCoded);
+    load(search, filterCoded, 1);
   }, []);  // eslint-disable-line
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => load(val, filterCoded), 400);
+    searchTimer.current = setTimeout(() => load(val, filterCoded, 1), 400);
   };
 
   const handleFilter = (val: 'all' | 'true' | 'false') => {
     setFilterCoded(val);
-    load(search, val);
+    load(search, val, 1);
+  };
+
+  const goToPage = (p: number) => {
+    if (p < 1 || p > pages) return;
+    load(search, filterCoded, p);
   };
 
   const startEdit = (item: TovaryMappingItem) => {
@@ -390,8 +402,50 @@ export default function TovaryMappingPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-            Показано {items.length} из {total.toLocaleString('ru')} товаров
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-xs text-gray-400">
+              Показано {items.length} из {count.toLocaleString('ru')} (всего {total.toLocaleString('ru')} товаров)
+            </span>
+            {pages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1 || loading}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  ←
+                </button>
+                {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
+                  let p: number;
+                  if (pages <= 7) {
+                    p = i + 1;
+                  } else if (page <= 4) {
+                    p = i + 1;
+                  } else if (page >= pages - 3) {
+                    p = pages - 6 + i;
+                  } else {
+                    p = page - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => goToPage(p)}
+                      disabled={loading}
+                      className={`px-2.5 py-1 text-xs rounded border ${p === page ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 hover:bg-gray-50'}`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= pages || loading}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

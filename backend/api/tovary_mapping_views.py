@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
+from django.core.paginator import Paginator
 from authentication.permissions import CanUpload
 from .models import TovaryMapping, Sale
 
@@ -69,6 +70,13 @@ class TovaryMappingListView(APIView):
 
         qs = qs.order_by('is_coded', 'tovary')  # незакодированные сверху
 
+        page     = int(request.query_params.get('page', 1))
+        per_page = int(request.query_params.get('per_page', 50))
+        per_page = min(per_page, 200)  # не больше 200 за раз
+
+        paginator   = Paginator(qs, per_page)
+        page_obj    = paginator.get_page(page)
+
         data = [
             {
                 'id':              obj.id,
@@ -80,13 +88,17 @@ class TovaryMappingListView(APIView):
                 'is_coded':        obj.is_coded,
                 'updated_at':      obj.updated_at.strftime('%Y-%m-%d %H:%M') if obj.updated_at else None,
             }
-            for obj in qs[:500]  # максимум 500 за раз
+            for obj in page_obj
         ]
 
         return Response({
-            'results': data,
-            'total':   TovaryMapping.objects.count(),
-            'uncoded': TovaryMapping.objects.filter(is_coded=False).count(),
+            'results':    data,
+            'total':      TovaryMapping.objects.count(),
+            'uncoded':    TovaryMapping.objects.filter(is_coded=False).count(),
+            'page':       page,
+            'per_page':   per_page,
+            'pages':      paginator.num_pages,
+            'count':      paginator.count,
         })
 
 

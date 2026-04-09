@@ -923,10 +923,14 @@ class ApiClient {
 
   // ─── СПРАВОЧНИК ТОВАРОВ ──────────────────────────────────────────────────────
 
-  getTovaryMapping(params?: { search?: string; coded?: 'true' | 'false' }): Promise<{
+  getTovaryMapping(params?: { search?: string; coded?: 'true' | 'false'; page?: number; per_page?: number }): Promise<{
     results: TovaryMappingItem[];
     total: number;
     uncoded: number;
+    page: number;
+    per_page: number;
+    pages: number;
+    count: number;
   }> {
     return this.fetch('/tovary-mapping/', params as Record<string, string>);
   }
