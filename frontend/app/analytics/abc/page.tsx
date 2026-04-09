@@ -171,7 +171,7 @@ export default function ABCPage() {
                 <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
                   {pieData.map((entry, i) => <Cell key={i} fill={CAT_COLORS[entry.name]} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={(v) => `${v}%`} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
