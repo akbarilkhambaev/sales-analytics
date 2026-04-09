@@ -185,7 +185,7 @@ export default function ABCPage() {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
                 <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => [`${fmt(v)} кг`, 'Объём']} />
+                <Tooltip formatter={(v) => [`${fmt(Number(v))} кг`, 'Объём']} />
                 <Bar dataKey="volume" radius={[0, 3, 3, 0]}>
                   {barData.map((entry, i) => <Cell key={i} fill={CAT_COLORS[entry.category]} />)}
                 </Bar>
