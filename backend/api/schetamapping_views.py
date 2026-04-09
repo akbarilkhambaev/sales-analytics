@@ -101,39 +101,25 @@ class SchetaMappingApplyView(APIView):
     permission_classes = [CanUpload]
 
     def post(self, request):
-        mapping = {
-            m.scheta: m.region
-            for m in SchetaMapping.objects.filter(is_mapped=True)
-        }
+        from django.db.models import Case, When, Value, CharField
 
-        if not mapping:
-            return Response({'fixed': 0, 'skipped': 0, 'message': 'Нет маппингов'})
+        mappings = list(SchetaMapping.objects.filter(is_mapped=True).values('scheta', 'region'))
+        if not mappings:
+            return Response({'fixed': 0, 'message': 'Нет маппингов'})
 
-        # Обновляем ВСЕ продажи по маппингу (не только с пустым регионом)
-        sales = Sale.objects.filter(
-            scheta__in=mapping.keys()
-        ).exclude(scheta__isnull=True).exclude(scheta='')
+        # Один SQL UPDATE с CASE WHEN — без загрузки данных в память
+        whens = [
+            When(scheta=m['scheta'], then=Value(m['region']))
+            for m in mappings
+        ]
+        schetas = [m['scheta'] for m in mappings]
 
-        to_update = []
-        skipped = 0
-
-        for sale in sales.iterator(chunk_size=2000):
-            region = mapping.get(sale.scheta)
-            if not region:
-                skipped += 1
-                continue
-            sale.region = region
-            to_update.append(sale)
-
-        fixed = 0
-        CHUNK = 1000
-        for i in range(0, len(to_update), CHUNK):
-            Sale.objects.bulk_update(to_update[i:i + CHUNK], ['region'])
-            fixed += len(to_update[i:i + CHUNK])
+        fixed = Sale.objects.filter(scheta__in=schetas).update(
+            region=Case(*whens, output_field=CharField())
+        )
 
         return Response({
             'fixed':   fixed,
-            'skipped': skipped,
             'message': f'Обновлено {fixed} записей',
         })
 
