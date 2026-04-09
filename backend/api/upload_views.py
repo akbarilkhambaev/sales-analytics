@@ -78,39 +78,37 @@ class ExcelUploadView(APIView):
         
         try:
             with transaction.atomic():
+                sales_to_create = []
+                new_mapping_to_create = []
+
                 for index, row in df.iterrows():
                     try:
-                        # Пропускаем строки без кода товара И без товаров
                         tovary_val = str(row.get('ТОВАРЫ', '')).strip() if pd.notna(row.get('ТОВАРЫ')) else ''
                         kod_val    = str(row.get('КОД_ТОВАРА', '')).strip() if pd.notna(row.get('КОД_ТОВАРА')) else ''
 
                         if not tovary_val and not kod_val:
                             continue
 
-                        # Автозаполнение из справочника если ТОВАРЫ есть
                         m = mapping_cache.get(tovary_val) if tovary_val else None
 
-                        resolved_kod      = kod_val or (m.kod_tovara      if m else None)
-                        resolved_gruppa   = (str(row.get('ГРУППА_ТОВАРА', '')).strip() if pd.notna(row.get('ГРУППА_ТОВАРА')) else '') or (m.gruppa_tovara   if m else None)
-                        resolved_cvet     = (str(row.get('ЦВЕТ', '')).strip()           if pd.notna(row.get('ЦВЕТ'))           else '') or (m.cvet            if m else None)
-                        resolved_profil   = (str(row.get('профиль_перечень', '')).strip() if pd.notna(row.get('профиль_перечень')) else '') or (m.profil_perechen if m else None)
+                        resolved_kod    = kod_val or (m.kod_tovara      if m else None)
+                        resolved_gruppa = (str(row.get('ГРУППА_ТОВАРА', '')).strip() if pd.notna(row.get('ГРУППА_ТОВАРА')) else '') or (m.gruppa_tovara   if m else None)
+                        resolved_cvet   = (str(row.get('ЦВЕТ', '')).strip()           if pd.notna(row.get('ЦВЕТ'))           else '') or (m.cvet            if m else None)
+                        resolved_profil = (str(row.get('профиль_перечень', '')).strip() if pd.notna(row.get('профиль_перечень')) else '') or (m.profil_perechen if m else None)
 
-                        # Если ТОВАРЫ есть, но в справочнике не нашли — добавляем как незакодированный
                         if tovary_val and not m:
-                            new_obj, created = TovaryMapping.objects.get_or_create(
+                            new_uncoded.append(tovary_val)
+                            new_m = TovaryMapping(
                                 tovary=tovary_val,
-                                defaults={
-                                    'kod_tovara':     resolved_kod or None,
-                                    'gruppa_tovara':  resolved_gruppa or None,
-                                    'cvet':           resolved_cvet or None,
-                                    'profil_perechen': resolved_profil or None,
-                                }
+                                kod_tovara=resolved_kod or None,
+                                gruppa_tovara=resolved_gruppa or None,
+                                cvet=resolved_cvet or None,
+                                profil_perechen=resolved_profil or None,
                             )
-                            if created:
-                                mapping_cache[tovary_val] = new_obj
-                                new_uncoded.append(tovary_val)
+                            mapping_cache[tovary_val] = new_m
+                            new_mapping_to_create.append(new_m)
 
-                        sale = Sale(
+                        sales_to_create.append(Sale(
                             kod_tovara=resolved_kod or None,
                             gruppa_tovara=resolved_gruppa or None,
                             region=str(row.get('РЕГИОН', '')).strip() if pd.notna(row.get('РЕГИОН')) else None,
@@ -122,14 +120,18 @@ class ExcelUploadView(APIView):
                             tovary=tovary_val or None,
                             cvet=resolved_cvet or None,
                             profil_perechen=resolved_profil or None,
-                        )
-                        sale.save()
-                        records_added += 1
+                        ))
                     except Exception as e:
                         errors.append(f'Строка {index + 2}: {str(e)}')
                         if len(errors) > 10:
                             errors.append('...и другие ошибки')
                             break
+
+                if new_mapping_to_create:
+                    TovaryMapping.objects.bulk_create(new_mapping_to_create, ignore_conflicts=True)
+                if sales_to_create:
+                    Sale.objects.bulk_create(sales_to_create, batch_size=500)
+                records_added = len(sales_to_create)
             
             response_data = {
                 'message': f'Успешно загружено {records_added} записей',
