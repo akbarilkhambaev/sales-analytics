@@ -316,10 +316,10 @@ export default function HierarchyPage() {
                           {YEARS.map((year) => (
                             <>
                               <td key={`${year}-pcs`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-blue-500 border-l border-gray-100">
-                                {profile.years[year]?.pieces > 0 ? formatNumber(profile.years[year].pieces) : '-'}
+                                {(profile.years[year]?.pieces ?? 0) > 0 ? formatNumber(profile.years[year]!.pieces!) : '-'}
                               </td>
                               <td key={`${year}-kg`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-gray-600">
-                                {profile.years[year]?.value > 0 ? formatNumber(profile.years[year].value) : '-'}
+                                {(profile.years[year]?.value ?? 0) > 0 ? formatNumber(profile.years[year]!.value) : '-'}
                               </td>
                             </>
                           ))}
