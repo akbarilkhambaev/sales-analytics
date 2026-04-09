@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Home, Upload, FileSpreadsheet, Database, CheckCircle, AlertCircle, Loader2, FileText, Trash2, BookOpen } from 'lucide-react';
+import { Home, Upload, FileSpreadsheet, Database, CheckCircle, AlertCircle, Loader2, FileText, Trash2, BookOpen, MapPin } from 'lucide-react';
 
 interface UploadResult {
   success: boolean;
@@ -85,6 +85,12 @@ export default function AdminPage() {
                 className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
               >
                 <BookOpen className="w-5 h-5" /> Справочник товаров
+              </Link>
+              <Link
+                href="/settings/regions"
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
+              >
+                <MapPin className="w-5 h-5" /> Справочник регионов
               </Link>
               <Link
                 href="/data-management"

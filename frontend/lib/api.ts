@@ -37,6 +37,7 @@ import type {
   PlanFactResponse,
   PlanFactFilters,
   TovaryMappingItem,
+  SchetaMappingItem,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -1009,6 +1010,55 @@ class ApiClient {
     });
     const json = await response.json();
     if (!response.ok) throw new Error(json.error || 'Ошибка применения');
+    return json;
+  }
+
+  // ─── СПРАВОЧНИК СЧЕТОВ ───────────────────────────────────────────────
+
+  getSchetaMapping(params?: { search?: string; mapped?: 'true' | 'false'; page?: number; per_page?: number }): Promise<{
+    results: SchetaMappingItem[];
+    total: number;
+    unmapped: number;
+    page: number;
+    per_page: number;
+    pages: number;
+    count: number;
+    regions: string[];
+  }> {
+    return this.fetch('/scheta-mapping/', params as Record<string, string>);
+  }
+
+  async updateSchetaMapping(id: number, data: { region: string | null }): Promise<SchetaMappingItem> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/scheta-mapping/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(data),
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка обновления');
+    return json;
+  }
+
+  async applySchetaMapping(): Promise<{ total: number; fixed: number; skipped: number; message: string }> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/scheta-mapping/apply/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка применения');
+    return json;
+  }
+
+  async syncSchetaMapping(): Promise<{ added: number; message: string }> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/scheta-mapping/sync/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка синхронизации');
     return json;
   }
 

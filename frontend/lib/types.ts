@@ -11,6 +11,14 @@ export interface TovaryMappingItem {
   updated_at: string | null;
 }
 
+export interface SchetaMappingItem {
+  id: number;
+  scheta: string;
+  region: string | null;
+  is_mapped: boolean;
+  updated_at: string | null;
+}
+
 export interface YearValue {
   value: number;
   pieces?: number;

@@ -399,6 +399,42 @@ class TovaryMapping(models.Model):
         return f"{self.tovary} → {self.kod_tovara or '?'}"
 
 
+class SchetaMapping(models.Model):
+    """Справочник: СЧЕТЫ → РЕГИОН"""
+
+    scheta = models.CharField(
+        max_length=255,
+        verbose_name="Счёт",
+        unique=True,
+        db_index=True,
+    )
+    region = models.CharField(
+        max_length=100,
+        verbose_name="Регион",
+        null=True, blank=True,
+    )
+    is_mapped = models.BooleanField(
+        default=False,
+        verbose_name="Сопоставлен",
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'scheta_mapping'
+        verbose_name = 'Справочник счетов → регион'
+        verbose_name_plural = 'Справочник счетов → регион'
+        ordering = ['is_mapped', 'scheta']
+
+    def save(self, *args, **kwargs):
+        self.is_mapped = bool(self.region and self.region.strip())
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.scheta} → {self.region or '?'}"
+
+
 class ExpenseCategory(models.Model):
     """Категория расходов"""
     

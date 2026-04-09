@@ -10,6 +10,7 @@ from .catalog_views import ProductCatalogViewSet
 from .clientcard_views import ClientCardViewSet
 from .visitreport_views import ClientVisitReportViewSet
 from .planfact_views import PlanFactViewSet
+from .schetamapping_views import SchetaMappingListView, SchetaMappingDetailView, SchetaMappingApplyView, SchetaMappingSyncView
 from .analytics_views import ABCAnalysisView, MonthlyTrendView, RegionMapView, RegionMapFiltersView
 from .market_views import MarketDataView
 from .kanban_views import KanbanColumnViewSet, KanbanTaskViewSet, KanbanUsersView
@@ -57,6 +58,10 @@ urlpatterns = [
     path('analytics/monthly-trend/', MonthlyTrendView.as_view(), name='analytics-monthly-trend'),
     path('analytics/region-map/', RegionMapView.as_view(), name='analytics-region-map'),
     path('analytics/region-map/filters/', RegionMapFiltersView.as_view(), name='analytics-region-map-filters'),
+    path('scheta-mapping/', SchetaMappingListView.as_view(), name='scheta-mapping-list'),
+    path('scheta-mapping/sync/', SchetaMappingSyncView.as_view(), name='scheta-mapping-sync'),
+    path('scheta-mapping/apply/', SchetaMappingApplyView.as_view(), name='scheta-mapping-apply'),
+    path('scheta-mapping/<int:pk>/', SchetaMappingDetailView.as_view(), name='scheta-mapping-detail'),
     path('market/data/', MarketDataView.as_view(), name='market-data'),
     path('kpi/summary/', KPISummaryView.as_view(), name='kpi-summary'),
     path('kpi/managers/', KPIManagersView.as_view(), name='kpi-managers'),

@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db import transaction
 from authentication.permissions import CanUpload
-from .models import Sale, ReadySale, TovaryMapping
+from .models import Sale, ReadySale, TovaryMapping, SchetaMapping
 
 
 class ExcelUploadView(APIView):
@@ -73,8 +73,9 @@ class ExcelUploadView(APIView):
         errors = []
         new_uncoded = []
 
-        # Загружаем справочник целиком в память
+        # Загружаем справочники целиком в память
         mapping_cache = {m.tovary: m for m in TovaryMapping.objects.all()}
+        scheta_cache = set(SchetaMapping.objects.values_list('scheta', flat=True))
         
         try:
             with transaction.atomic():
@@ -129,6 +130,22 @@ class ExcelUploadView(APIView):
 
                 if new_mapping_to_create:
                     TovaryMapping.objects.bulk_create(new_mapping_to_create, ignore_conflicts=True)
+
+                # Авто-добавление новых счетов в SchetaMapping
+                new_schetas = [
+                    SchetaMapping(scheta=s.scheta)
+                    for s in sales_to_create
+                    if s.scheta and s.scheta not in scheta_cache
+                ]
+                seen = set()
+                unique_new_schetas = []
+                for sm in new_schetas:
+                    if sm.scheta not in seen:
+                        seen.add(sm.scheta)
+                        unique_new_schetas.append(sm)
+                if unique_new_schetas:
+                    SchetaMapping.objects.bulk_create(unique_new_schetas, ignore_conflicts=True)
+
                 if sales_to_create:
                     Sale.objects.bulk_create(sales_to_create, batch_size=500)
                 records_added = len(sales_to_create)
