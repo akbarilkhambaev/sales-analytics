@@ -1,7 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import SalesViewSet, ClientsViewSet
-from .upload_views import ExcelUploadView
+from .upload_views import ExcelUploadView, DataManagementView
+from .tovary_mapping_views import TovaryMappingListView, TovaryMappingDetailView, TovaryMappingApplyView, TovaryMappingSuggestionsView
 from .dashboard_views import DashboardMetricsView, SalesComparisonView
 from .expense_views import ExpenseViewSet, ExpenseCategoryViewSet
 from .work_report_views import WorkReportViewSet, WorkReportPhotoViewSet
@@ -43,6 +44,11 @@ router.register(r'configurator/accessories', AccessoryViewSet,    basename='cfg-
 urlpatterns = [
     path('', include(router.urls)),
     path('upload/excel/', ExcelUploadView.as_view(), name='upload-excel'),
+    path('data/manage/', DataManagementView.as_view(), name='data-manage'),
+    path('tovary-mapping/', TovaryMappingListView.as_view(), name='tovary-mapping-list'),
+    path('tovary-mapping/suggestions/', TovaryMappingSuggestionsView.as_view(), name='tovary-mapping-suggestions'),
+    path('tovary-mapping/<int:pk>/', TovaryMappingDetailView.as_view(), name='tovary-mapping-detail'),
+    path('tovary-mapping/apply/', TovaryMappingApplyView.as_view(), name='tovary-mapping-apply'),
     path('dashboard/metrics/', DashboardMetricsView.as_view(), name='dashboard-metrics'),
     path('dashboard/comparison/', SalesComparisonView.as_view(), name='sales-comparison'),
     path('kpi/summary/', KPISummaryView.as_view(), name='kpi-summary'),

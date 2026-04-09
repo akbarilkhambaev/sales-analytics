@@ -7,14 +7,11 @@ import {
   Palette, 
   ChevronDown, 
   ChevronRight, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus,
   Calendar,
   Warehouse,
   Globe
 } from 'lucide-react';
-import { apiClient, formatNumber, getGrowthColor } from '@/lib/api';
+import { apiClient, formatNumber } from '@/lib/api';
 import { ProductColorsHierarchy, FilterParams, YEARS, MONTHS } from '@/lib/types';
 
 export default function ColorsPage() {
@@ -75,13 +72,6 @@ export default function ColorsPage() {
       newExpanded.add(product);
     }
     setExpandedProducts(newExpanded);
-  };
-
-  const getGrowthIcon = (growth: number | null) => {
-    if (growth === null) return <Minus className="w-4 h-4" />;
-    if (growth > 0) return <TrendingUp className="w-4 h-4" />;
-    if (growth < 0) return <TrendingDown className="w-4 h-4" />;
-    return <Minus className="w-4 h-4" />;
   };
 
   if (loading) {
@@ -243,26 +233,29 @@ export default function ColorsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="overflow-auto max-h-[calc(100vh-340px)]">
             <table className="w-full">
-              <thead className="bg-amber-50">
+              <thead className="sticky top-0 z-10 bg-amber-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider sticky left-0 bg-amber-50 z-10">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider sticky left-0 bg-amber-50 z-10" rowSpan={2}>
                     Продукт / Цвет
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    Всего
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider" rowSpan={2}>
+                    Всего (кг)
                   </th>
                   {YEARS.map((year) => (
-                    <th key={year} className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th key={year} className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider border-l border-gray-200" colSpan={2}>
                       {year}
                     </th>
                   ))}
-                  {YEARS.slice(1).map((year) => (
-                    <th key={`growth-${year}`} className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Δ {year}
-                    </th>
+                </tr>
+                <tr>
+                  {YEARS.map((year) => (
+                    <>
+                      <th key={`${year}-pcs`} className="px-3 py-2 text-right text-xs font-medium text-blue-500 border-l border-gray-200">шт</th>
+                      <th key={`${year}-kg`} className="px-3 py-2 text-right text-xs font-medium text-amber-600">кг</th>
+                    </>
                   ))}
                 </tr>
               </thead>
@@ -292,9 +285,20 @@ export default function ColorsPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
                           {formatNumber(product.total_sales)}
                         </td>
-                        <td colSpan={YEARS.length + YEARS.length - 1} className="px-6 py-4 text-center text-xs text-gray-500">
-                          Раскройте для деталей
-                        </td>
+                        {YEARS.map((year) => {
+                          const yearKg = product.colors.reduce((sum, c) => sum + (c.years[year]?.value || 0), 0);
+                          const yearPcs = product.colors.reduce((sum, c) => sum + (c.years[year]?.pieces || 0), 0);
+                          return (
+                            <>
+                              <td key={`${year}-pcs`} className="px-3 py-4 whitespace-nowrap text-right text-blue-600 text-sm border-l border-gray-100">
+                                {yearPcs > 0 ? formatNumber(yearPcs) : '-'}
+                              </td>
+                              <td key={`${year}-kg`} className="px-3 py-4 whitespace-nowrap text-right text-gray-700 text-sm">
+                                {yearKg > 0 ? formatNumber(yearKg) : '-'}
+                              </td>
+                            </>
+                          );
+                        })}
                       </tr>
 
                       {/* Color Rows */}
@@ -309,23 +313,15 @@ export default function ColorsPage() {
                             {formatNumber(color.total)}
                           </td>
                           {YEARS.map((year) => (
-                            <td key={year} className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-600">
-                              {formatNumber(color.years[year]?.value)}
-                            </td>
-                          ))}
-                          {YEARS.slice(1).map((year) => {
-                            const growth = color.growth[year];
-                            return (
-                              <td key={`growth-${year}`} className="px-6 py-3 whitespace-nowrap text-right text-sm">
-                                {growth !== null && (
-                                  <span className={`inline-flex items-center gap-1 ${getGrowthColor(growth)}`}>
-                                    {getGrowthIcon(growth)}
-                                    <span>{growth !== null ? `${growth > 0 ? '+' : ''}${growth}%` : '-'}</span>
-                                  </span>
-                                )}
+                            <>
+                              <td key={`${year}-pcs`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-blue-500 border-l border-gray-100">
+                                {color.years[year]?.pieces > 0 ? formatNumber(color.years[year].pieces) : '-'}
                               </td>
-                            );
-                          })}
+                              <td key={`${year}-kg`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-gray-600">
+                                {color.years[year]?.value > 0 ? formatNumber(color.years[year].value) : '-'}
+                              </td>
+                            </>
+                          ))}
                         </tr>
                       ))}
                     </>

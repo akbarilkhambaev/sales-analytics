@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db import transaction
 from authentication.permissions import CanUpload
-from .models import Sale, ReadySale
+from .models import Sale, ReadySale, TovaryMapping
 
 
 class ExcelUploadView(APIView):
@@ -71,40 +71,78 @@ class ExcelUploadView(APIView):
         
         records_added = 0
         errors = []
+        new_uncoded = []
+
+        # Загружаем справочник целиком в память
+        mapping_cache = {m.tovary: m for m in TovaryMapping.objects.all()}
         
         try:
             with transaction.atomic():
                 for index, row in df.iterrows():
                     try:
-                        # Пропускаем строки без кода товара
-                        if pd.isna(row.get('КОД_ТОВАРА')) or row.get('КОД_ТОВАРА') == '':
+                        # Пропускаем строки без кода товара И без товаров
+                        tovary_val = str(row.get('ТОВАРЫ', '')).strip() if pd.notna(row.get('ТОВАРЫ')) else ''
+                        kod_val    = str(row.get('КОД_ТОВАРА', '')).strip() if pd.notna(row.get('КОД_ТОВАРА')) else ''
+
+                        if not tovary_val and not kod_val:
                             continue
-                        
+
+                        # Автозаполнение из справочника если ТОВАРЫ есть
+                        m = mapping_cache.get(tovary_val) if tovary_val else None
+
+                        resolved_kod      = kod_val or (m.kod_tovara      if m else None)
+                        resolved_gruppa   = (str(row.get('ГРУППА_ТОВАРА', '')).strip() if pd.notna(row.get('ГРУППА_ТОВАРА')) else '') or (m.gruppa_tovara   if m else None)
+                        resolved_cvet     = (str(row.get('ЦВЕТ', '')).strip()           if pd.notna(row.get('ЦВЕТ'))           else '') or (m.cvet            if m else None)
+                        resolved_profil   = (str(row.get('профиль_перечень', '')).strip() if pd.notna(row.get('профиль_перечень')) else '') or (m.profil_perechen if m else None)
+
+                        # Если ТОВАРЫ есть, но в справочнике не нашли — добавляем как незакодированный
+                        if tovary_val and not m:
+                            new_obj, created = TovaryMapping.objects.get_or_create(
+                                tovary=tovary_val,
+                                defaults={
+                                    'kod_tovara':     resolved_kod or None,
+                                    'gruppa_tovara':  resolved_gruppa or None,
+                                    'cvet':           resolved_cvet or None,
+                                    'profil_perechen': resolved_profil or None,
+                                }
+                            )
+                            if created:
+                                mapping_cache[tovary_val] = new_obj
+                                new_uncoded.append(tovary_val)
+
                         sale = Sale(
-                            kod_tovara=str(row.get('КОД_ТОВАРА', '')),
-                            gruppa_tovara=str(row.get('ГРУППА_ТОВАРА', '')) if pd.notna(row.get('ГРУППА_ТОВАРА')) else None,
-                            region=str(row.get('РЕГИОН', '')) if pd.notna(row.get('РЕГИОН')) else None,
-                            sklad=str(row.get('СКЛАД', '')) if pd.notna(row.get('СКЛАД')) else None,
-                            scheta=str(row.get('СЧЕТЫ', '')) if pd.notna(row.get('СЧЕТЫ')) else None,
+                            kod_tovara=resolved_kod or None,
+                            gruppa_tovara=resolved_gruppa or None,
+                            region=str(row.get('РЕГИОН', '')).strip() if pd.notna(row.get('РЕГИОН')) else None,
+                            sklad=str(row.get('СКЛАД', '')).strip() if pd.notna(row.get('СКЛАД')) else None,
+                            scheta=str(row.get('СЧЕТЫ', '')).strip() if pd.notna(row.get('СЧЕТЫ')) else None,
                             data=str(row.get('Дата', '')) if pd.notna(row.get('Дата')) else None,
                             dopoln_kol_vo=str(row.get('ДОПОЛН__КОЛ-ВО', '')) if pd.notna(row.get('ДОПОЛН__КОЛ-ВО')) else None,
-                            tovary=str(row.get('ТОВАРЫ', '')) if pd.notna(row.get('ТОВАРЫ')) else None,
-                            cvet=str(row.get('ЦВЕТ', '')) if pd.notna(row.get('ЦВЕТ')) else None,
-                            profil_perechen=str(row.get('профиль_перечень', '')) if pd.notna(row.get('профиль_перечень')) else None,
+                            uch_kol_vo=str(row.get('УЧИТЫВАЯ_КОЛ-ВО', '')) if pd.notna(row.get('УЧИТЫВАЯ_КОЛ-ВО')) else None,
+                            tovary=tovary_val or None,
+                            cvet=resolved_cvet or None,
+                            profil_perechen=resolved_profil or None,
                         )
                         sale.save()
                         records_added += 1
                     except Exception as e:
                         errors.append(f'Строка {index + 2}: {str(e)}')
-                        if len(errors) > 10:  # Ограничиваем количество ошибок
+                        if len(errors) > 10:
                             errors.append('...и другие ошибки')
                             break
             
-            return Response({
+            response_data = {
                 'message': f'Успешно загружено {records_added} записей',
                 'records_count': records_added,
-                'errors': errors if errors else None
-            })
+                'errors': errors if errors else None,
+            }
+            if new_uncoded:
+                response_data['uncoded_warning'] = (
+                    f'Внимание: {len(new_uncoded)} новых товаров не найдены в справочнике. '
+                    'Закодируйте их в Раздел → Справочник товаров'
+                )
+                response_data['new_uncoded'] = new_uncoded[:20]  # показываем макс 20
+            return Response(response_data)
             
         except Exception as e:
             return Response(
@@ -196,3 +234,57 @@ class ExcelUploadView(APIView):
                 {'error': f'Ошибка при сохранении данных: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class DataManagementView(APIView):
+    """Просмотр и удаление записей по диапазону дат (только Admin)"""
+    permission_classes = [CanUpload]
+
+    def _build_querysets(self, model_choice, date_from, date_to):
+        result = {}
+        if model_choice in ('sale', 'both'):
+            qs = Sale.objects.all()
+            if date_from:
+                qs = qs.filter(data__gte=date_from)
+            if date_to:
+                qs = qs.filter(data__lte=date_to)
+            result['sale'] = qs
+        if model_choice in ('ready_sale', 'both'):
+            qs = ReadySale.objects.all()
+            if date_from:
+                qs = qs.filter(data__gte=date_from)
+            if date_to:
+                qs = qs.filter(data__lte=date_to)
+            result['ready_sale'] = qs
+        return result
+
+    def post(self, request):
+        action = request.data.get('action')               # 'preview' | 'delete'
+        model_choice = request.data.get('model', 'both')  # 'sale' | 'ready_sale' | 'both'
+        date_from = request.data.get('date_from', '')
+        date_to = request.data.get('date_to', '')
+
+        if model_choice not in ('sale', 'ready_sale', 'both'):
+            return Response({'error': 'Неверное значение model'}, status=status.HTTP_400_BAD_REQUEST)
+        if not date_from and not date_to:
+            return Response({'error': 'Укажите хотя бы одну дату'}, status=status.HTTP_400_BAD_REQUEST)
+
+        querysets = self._build_querysets(model_choice, date_from, date_to)
+
+        if action == 'preview':
+            counts = {name: qs.count() for name, qs in querysets.items()}
+            return Response({'counts': counts, 'total': sum(counts.values())})
+
+        elif action == 'delete':
+            deleted_counts = {}
+            with transaction.atomic():
+                for name, qs in querysets.items():
+                    deleted_counts[name] = qs.count()
+                    qs.delete()
+            return Response({
+                'deleted': deleted_counts,
+                'total': sum(deleted_counts.values()),
+                'message': f'Удалено {sum(deleted_counts.values())} записей',
+            })
+
+        return Response({'error': 'action должен быть preview или delete'}, status=status.HTTP_400_BAD_REQUEST)

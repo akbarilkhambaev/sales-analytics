@@ -222,16 +222,16 @@ export default function ProductsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow">
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               <p className="mt-4 text-gray-600">Загрузка данных...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+                <thead className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
                   <tr>
                     <th 
                       className="px-4 py-3 text-left font-semibold cursor-pointer hover:bg-blue-700 transition"

@@ -919,6 +919,65 @@ class ApiClient {
   getPlanFactProductsList(): Promise<{ products: string[] }> {
     return this.fetch<{ products: string[] }>('/plan-fact/products-list/');
   }
+
+  // ─── СПРАВОЧНИК ТОВАРОВ ──────────────────────────────────────────────────────
+
+  getTovaryMapping(params?: { search?: string; coded?: 'true' | 'false' }): Promise<{
+    results: TovaryMappingItem[];
+    total: number;
+    uncoded: number;
+  }> {
+    return this.fetch('/tovary-mapping/', params as Record<string, string>);
+  }
+
+  async updateTovaryMapping(id: number, data: Partial<TovaryMappingItem>): Promise<TovaryMappingItem> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/tovary-mapping/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(data),
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка обновления');
+    return json;
+  }
+
+  getTovaryMappingSuggestions(field: string, q?: string): Promise<{ values: string[] }> {
+    const params: Record<string, string> = { field };
+    if (q) params.q = q;
+    return this.fetch('/tovary-mapping/suggestions/', params);
+  }
+
+  async applyTovaryMapping(): Promise<{ total: number; fixed: number; skipped: number; message: string }> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/tovary-mapping/apply/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка применения');
+    return json;
+  }
+
+  // ─── УПРАВЛЕНИЕ ДАННЫМИ ──────────────────────────────────────────────────────
+
+  async dataManage(payload: {
+    action: 'preview' | 'delete';
+    model: 'sale' | 'ready_sale' | 'both';
+    date_from: string;
+    date_to: string;
+  }): Promise<{ counts?: Record<string, number>; deleted?: Record<string, number>; total: number; message?: string }> {
+    const response = await fetch(`${this.baseUrl}/data/manage/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Ошибка запроса');
+    }
+    return data;
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

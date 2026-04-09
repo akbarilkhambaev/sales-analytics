@@ -283,10 +283,10 @@ export default function PlanFactPage() {
 
         {/* Table */}
         {loaded && data && !loading && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white rounded-xl shadow-md">
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
               <table className="w-full text-sm min-w-[1000px]">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-800 text-white text-xs tracking-wide">
                     <th className="px-3 py-3 text-left min-w-[140px]">{'\u041f\u0440\u043e\u0434\u0443\u043a\u0446\u0438\u044f'}</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">

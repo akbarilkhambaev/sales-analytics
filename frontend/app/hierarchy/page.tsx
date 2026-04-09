@@ -7,14 +7,11 @@ import {
   PackageOpen, 
   ChevronDown, 
   ChevronRight, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus,
   Calendar,
   Warehouse,
   Globe
 } from 'lucide-react';
-import { apiClient, formatNumber, getGrowthColor } from '@/lib/api';
+import { apiClient, formatNumber } from '@/lib/api';
 import { ProductHierarchy, FilterParams, YEARS, MONTHS } from '@/lib/types';
 
 export default function HierarchyPage() {
@@ -77,12 +74,6 @@ export default function HierarchyPage() {
     setExpandedProducts(newExpanded);
   };
 
-  const getGrowthIcon = (growth: number | null) => {
-    if (growth === null) return <Minus className="w-4 h-4" />;
-    if (growth > 0) return <TrendingUp className="w-4 h-4" />;
-    if (growth < 0) return <TrendingDown className="w-4 h-4" />;
-    return <Minus className="w-4 h-4" />;
-  };
 
   if (loading) {
     return (
@@ -243,26 +234,29 @@ export default function HierarchyPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="overflow-auto max-h-[calc(100vh-340px)]">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50" rowSpan={2}>
                     Продукция / Профиль
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Всего
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" rowSpan={2}>
+                    Всего (кг)
                   </th>
                   {YEARS.map((year) => (
-                    <th key={year} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th key={year} className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200" colSpan={2}>
                       {year}
                     </th>
                   ))}
-                  {YEARS.slice(1).map((year) => (
-                    <th key={`growth-${year}`} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Δ {year}
-                    </th>
+                </tr>
+                <tr>
+                  {YEARS.map((year) => (
+                    <>
+                      <th key={`${year}-pcs`} className="px-3 py-2 text-right text-xs font-medium text-blue-500 border-l border-gray-200">шт</th>
+                      <th key={`${year}-kg`} className="px-3 py-2 text-right text-xs font-medium text-purple-500">кг</th>
+                    </>
                   ))}
                 </tr>
               </thead>
@@ -293,18 +287,19 @@ export default function HierarchyPage() {
                           {formatNumber(product.total_sales)}
                         </td>
                         {YEARS.map((year) => {
-                          const yearTotal = product.profiles.reduce((sum, profile) => {
-                            return sum + (profile.years[year]?.value || 0);
-                          }, 0);
+                          const yearKg = product.profiles.reduce((sum, profile) => sum + (profile.years[year]?.value || 0), 0);
+                          const yearPcs = product.profiles.reduce((sum, profile) => sum + (profile.years[year]?.pieces || 0), 0);
                           return (
-                            <td key={year} className="px-6 py-4 whitespace-nowrap text-right text-gray-700">
-                              {formatNumber(yearTotal)}
-                            </td>
+                            <>
+                              <td key={`${year}-pcs`} className="px-3 py-4 whitespace-nowrap text-right text-blue-600 text-sm border-l border-gray-100">
+                                {yearPcs > 0 ? formatNumber(yearPcs) : '-'}
+                              </td>
+                              <td key={`${year}-kg`} className="px-3 py-4 whitespace-nowrap text-right text-gray-700 text-sm">
+                                {yearKg > 0 ? formatNumber(yearKg) : '-'}
+                              </td>
+                            </>
                           );
                         })}
-                        {YEARS.slice(1).map(() => (
-                          <td key={`growth-placeholder`} className="px-6 py-4"></td>
-                        ))}
                       </tr>
 
                       {/* Profile Rows (when expanded) */}
@@ -319,23 +314,15 @@ export default function HierarchyPage() {
                             {formatNumber(profile.total)}
                           </td>
                           {YEARS.map((year) => (
-                            <td key={year} className="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-600">
-                              {formatNumber(profile.years[year]?.value)}
-                            </td>
-                          ))}
-                          {YEARS.slice(1).map((year) => {
-                            const growth = profile.growth[year];
-                            return (
-                              <td key={`growth-${year}`} className="px-6 py-3 whitespace-nowrap text-right">
-                                {growth !== undefined && (
-                                  <span className={`flex items-center justify-end gap-1 text-sm ${getGrowthColor(growth)}`}>
-                                    {getGrowthIcon(growth)}
-                                    <span>{growth !== null ? `${growth > 0 ? '+' : ''}${growth}%` : '-'}</span>
-                                  </span>
-                                )}
+                            <>
+                              <td key={`${year}-pcs`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-blue-500 border-l border-gray-100">
+                                {profile.years[year]?.pieces > 0 ? formatNumber(profile.years[year].pieces) : '-'}
                               </td>
-                            );
-                          })}
+                              <td key={`${year}-kg`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-gray-600">
+                                {profile.years[year]?.value > 0 ? formatNumber(profile.years[year].value) : '-'}
+                              </td>
+                            </>
+                          ))}
                         </tr>
                       ))}
                     </>

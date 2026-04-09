@@ -1,6 +1,6 @@
 from django.db.models import Sum, Q, F
 from django.db.models.functions import Substr
-from .utils import safe_kol_vo_sum
+from .utils import safe_kol_vo_sum, safe_uch_kol_vo_sum
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets, status
@@ -114,7 +114,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Организуем данные
         products = {}
-        years = ['2020', '2021', '2022', '2023', '2024', '2025']
+        years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026']
         
         for item in aggregated:
             code = item['kod_tovara']
@@ -190,7 +190,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Организуем данные
         groups = {}
-        years = ['2020', '2021', '2022', '2023', '2024', '2025']
+        years = ['2020', '2021', '2022', '2023', '2024', '2025', '2026']
         
         for item in aggregated:
             group = item['gruppa_tovara']
@@ -270,7 +270,8 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         ).values(
             'kod_tovara', 'profil_perechen', 'year'
         ).annotate(
-            total=safe_kol_vo_sum()
+            total=safe_kol_vo_sum(),
+            pieces=safe_uch_kol_vo_sum()
         ).order_by('kod_tovara', 'profil_perechen', 'year')
 
         # Структурируем данные
@@ -281,7 +282,6 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
                 'name': '',
                 'total': 0,
                 'years': {},
-                'growth': {}
             })
         })
 
@@ -290,6 +290,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
             profil = row['profil_perechen']
             year = row['year']
             total = row['total'] or 0
+            pieces = row['pieces'] or 0
 
             products[kod]['kod_tovara'] = kod
             products[kod]['total_sales'] += total
@@ -297,28 +298,12 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
             products[kod]['profiles'][profil]['name'] = profil
             products[kod]['profiles'][profil]['total'] += total
             products[kod]['profiles'][profil]['years'][year] = {
-                'value': total
+                'value': round(total, 2),
+                'pieces': round(pieces, 0),
             }
 
-        # Вычисляем growth для каждого профиля
+        # Конвертируем profiles из dict в list
         for product in products.values():
-            for profile_data in product['profiles'].values():
-                years = sorted(profile_data['years'].keys())
-                
-                for i in range(1, len(years)):
-                    current_year = years[i]
-                    prev_year = years[i - 1]
-
-                    current_value = profile_data['years'].get(current_year, {}).get('value', 0)
-                    prev_value = profile_data['years'].get(prev_year, {}).get('value', 0)
-
-                    if prev_value > 0 and current_value > 0:
-                        growth = round(((current_value - prev_value) / prev_value) * 100)
-                        profile_data['growth'][current_year] = growth
-                    else:
-                        profile_data['growth'][current_year] = None
-            
-            # Конвертируем profiles из dict в list
             product['profiles'] = sorted(
                 product['profiles'].values(),
                 key=lambda x: x['total'],
@@ -464,7 +449,8 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         ).values(
             'kod_tovara', 'cvet', 'year'
         ).annotate(
-            total=safe_kol_vo_sum()
+            total=safe_kol_vo_sum(),
+            pieces=safe_uch_kol_vo_sum()
         ).order_by('kod_tovara', 'cvet', 'year')
 
         # Структурируем данные
@@ -475,7 +461,6 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
                 'name': '',
                 'total': 0,
                 'years': {},
-                'growth': {}
             })
         })
 
@@ -484,6 +469,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
             color = row['cvet']
             year = row['year']
             total = row['total'] or 0
+            pieces = row['pieces'] or 0
 
             products[product]['product'] = product
             products[product]['total_sales'] += total
@@ -491,28 +477,12 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
             products[product]['colors'][color]['name'] = color
             products[product]['colors'][color]['total'] += total
             products[product]['colors'][color]['years'][year] = {
-                'value': total
+                'value': round(total, 2),
+                'pieces': round(pieces, 0),
             }
 
-        # Вычисляем growth для каждого цвета
+        # Конвертируем colors из dict в list
         for product_data in products.values():
-            for color_data in product_data['colors'].values():
-                years = sorted(color_data['years'].keys())
-                
-                for i in range(1, len(years)):
-                    current_year = years[i]
-                    prev_year = years[i - 1]
-
-                    current_value = color_data['years'].get(current_year, {}).get('value', 0)
-                    prev_value = color_data['years'].get(prev_year, {}).get('value', 0)
-
-                    if prev_value > 0 and current_value > 0:
-                        growth = round(((current_value - prev_value) / prev_value) * 100)
-                        color_data['growth'][current_year] = growth
-                    else:
-                        color_data['growth'][current_year] = None
-            
-            # Конвертируем colors из dict в list
             product_data['colors'] = sorted(
                 product_data['colors'].values(),
                 key=lambda x: x['total'],

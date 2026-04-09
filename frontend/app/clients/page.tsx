@@ -351,10 +351,10 @@ export default function ClientsPage() {
                 <p className="text-gray-400">Выберите параметры и нажмите «Применить фильтры»</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="overflow-x-auto">
+              <div className="bg-white rounded-lg shadow-md">
+                <div className="overflow-auto max-h-[calc(100vh-280px)]">
                   <table className="w-full">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-gray-50">
                       <tr className="bg-gray-50 border-b border-gray-200">
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Клиент</th>
@@ -545,10 +545,10 @@ export default function ClientsPage() {
                 <p className="text-gray-400">Выберите параметры и нажмите «Применить фильтры»</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="overflow-x-auto">
+              <div className="bg-white rounded-lg shadow-md">
+                <div className="overflow-auto max-h-[calc(100vh-280px)]">
                   <table className="w-full">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-gray-50">
                       <tr className="bg-gray-50 border-b border-gray-200">
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Товар</th>
@@ -688,10 +688,10 @@ export default function ClientsPage() {
             ) : error ? (
               <div className="text-center text-red-600 py-12 bg-white rounded-lg shadow">{error}</div>
             ) : purchaseHistory.length > 0 ? (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="overflow-x-auto">
+              <div className="bg-white rounded-lg shadow-md">
+                <div className="overflow-auto max-h-[calc(100vh-280px)]">
                   <table className="w-full">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-gray-50">
                       <tr className="bg-gray-50 border-b border-gray-200">
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Дата</th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Товар</th>

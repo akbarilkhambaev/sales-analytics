@@ -55,6 +55,13 @@ class Sale(models.Model):
         null=True,
         blank=True
     )
+    uch_kol_vo = models.CharField(
+        max_length=50,
+        verbose_name="Учитывая кол-во",
+        db_column="УЧИТЫВАЯ_КОЛ-ВО",
+        null=True,
+        blank=True
+    )
     tovary = models.CharField(
         max_length=255,
         verbose_name="Товары",
@@ -335,6 +342,61 @@ class SalesPlan(models.Model):
 
     def __str__(self):
         return f"{self.kod_tovara} — {self.year}/{self.month:02d} — {self.plan_kg} кг"
+
+
+class TovaryMapping(models.Model):
+    """Справочник: ТОВАРЫ → КОД_ТОВАРА, ГРУППА_ТОВАРА, ЦВЕТ, профиль_перечень"""
+
+    tovary = models.CharField(
+        max_length=255,
+        verbose_name="Товары",
+        unique=True,
+        db_index=True,
+    )
+    kod_tovara = models.CharField(
+        max_length=100,
+        verbose_name="Код товара",
+        null=True, blank=True,
+    )
+    gruppa_tovara = models.CharField(
+        max_length=100,
+        verbose_name="Группа товара",
+        null=True, blank=True,
+    )
+    cvet = models.CharField(
+        max_length=100,
+        verbose_name="Цвет",
+        null=True, blank=True,
+    )
+    profil_perechen = models.CharField(
+        max_length=100,
+        verbose_name="Профиль перечень",
+        null=True, blank=True,
+    )
+    is_coded = models.BooleanField(
+        default=False,
+        verbose_name="Закодирован",
+        help_text="True если все поля заполнены",
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'tovary_mapping'
+        verbose_name = 'Справочник товаров'
+        verbose_name_plural = 'Справочник товаров'
+        ordering = ['tovary']
+
+    def save(self, *args, **kwargs):
+        self.is_coded = bool(
+            self.kod_tovara and self.gruppa_tovara and
+            self.cvet and self.profil_perechen
+        )
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.tovary} → {self.kod_tovara or '?'}"
 
 
 class ExpenseCategory(models.Model):

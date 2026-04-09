@@ -1,7 +1,19 @@
 // API Types для Sales Analytics
 
+export interface TovaryMappingItem {
+  id: number;
+  tovary: string;
+  kod_tovara: string | null;
+  gruppa_tovara: string | null;
+  cvet: string | null;
+  profil_perechen: string | null;
+  is_coded: boolean;
+  updated_at: string | null;
+}
+
 export interface YearValue {
   value: number;
+  pieces?: number;
 }
 
 export interface ProductData {
@@ -30,7 +42,7 @@ export interface FilterParams {
   region?: string;
 }
 
-export const YEARS = ['2020', '2021', '2022', '2023', '2024', '2025'] as const;
+export const YEARS = ['2020', '2021', '2022', '2023', '2024', '2025', '2026'] as const;
 
 export const MONTHS = [
   { value: '', label: 'Все месяцы' },
@@ -83,7 +95,6 @@ export interface ColorData {
   name: string;
   total: number;
   years: Record<string, YearValue>;
-  growth: Record<string, number | null>;
 }
 
 export interface ProductColorsHierarchy {

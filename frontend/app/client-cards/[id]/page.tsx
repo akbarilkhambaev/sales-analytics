@@ -427,7 +427,7 @@ export default function ClientDetailPage() {
             ) : purchasesData && purchasesData.tovary && purchasesData.tovary.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-white">
                     <tr className="border-b-2 border-gray-200">
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">
                         Товары
