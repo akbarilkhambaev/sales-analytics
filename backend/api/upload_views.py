@@ -56,7 +56,7 @@ class ExcelUploadView(APIView):
     
     def _process_sales_data(self, df):
         """Обработка данных Sales"""
-        required_columns = ['КОД_ТОВАРА', 'Дата']
+        required_columns = ['ТОВАРЫ', 'Дата']
         
         # Проверка наличия обязательных колонок
         missing_columns = [col for col in required_columns if col not in df.columns]
