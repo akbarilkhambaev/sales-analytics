@@ -315,10 +315,10 @@ export default function ColorsPage() {
                           {YEARS.map((year) => (
                             <>
                               <td key={`${year}-pcs`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-blue-500 border-l border-gray-100">
-                                {color.years[year]?.pieces > 0 ? formatNumber(color.years[year].pieces) : '-'}
+                                {(color.years[year]?.pieces ?? 0) > 0 ? formatNumber(color.years[year]!.pieces!) : '-'}
                               </td>
                               <td key={`${year}-kg`} className="px-3 py-3 whitespace-nowrap text-right text-sm text-gray-600">
-                                {color.years[year]?.value > 0 ? formatNumber(color.years[year].value) : '-'}
+                                {(color.years[year]?.value ?? 0) > 0 ? formatNumber(color.years[year]!.value) : '-'}
                               </td>
                             </>
                           ))}
