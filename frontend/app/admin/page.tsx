@@ -36,7 +36,8 @@ export default function AdminPage() {
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      const response = await fetch('http://localhost:8000/api/upload/excel/', {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const response = await fetch(`${apiBase}/upload/excel/`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData,
