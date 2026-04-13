@@ -9,19 +9,25 @@ import {
 } from 'recharts';
 import { apiClient } from '@/lib/api';
 
-interface ABCItem {
+interface ABCXYZItem {
   rank: number;
   name: string;
   volume: number;
   pct: number;
   cumulative: number;
   category: 'A' | 'B' | 'C';
+  xyz_category: 'X' | 'Y' | 'Z';
+  variation: number;
+  matrix: string;
 }
 
-interface ABCSummary {
+interface ABCXYZSummary {
   a_count: number; b_count: number; c_count: number;
   a_volume: number; b_volume: number; c_volume: number;
   a_pct: number; b_pct: number; c_pct: number;
+  x_count: number; y_count: number; z_count: number;
+  x_pct: number; y_pct: number; z_pct: number;
+  matrix: Record<string, { count: number; volume: number }>;
 }
 
 const GROUPBY_OPTIONS = [
@@ -34,45 +40,31 @@ const GROUPBY_OPTIONS = [
 
 const CAT_COLORS: Record<string, string> = { A: '#10b981', B: '#f59e0b', C: '#ef4444' };
 const CAT_BG: Record<string, string> = { A: 'bg-emerald-100 text-emerald-800', B: 'bg-amber-100 text-amber-800', C: 'bg-red-100 text-red-800' };
+const XYZ_COLORS: Record<string, string> = { X: '#2563eb', Y: '#7c3aed', Z: '#dc2626' };
+const XYZ_BG: Record<string, string> = { X: 'bg-blue-100 text-blue-800', Y: 'bg-violet-100 text-violet-800', Z: 'bg-rose-100 text-rose-800' };
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(n);
 }
 
-export default function ABCPage() {
+export default function ABCXYZPage() {
   const curYear = new Date().getFullYear();
   const [groupby, setGroupby] = useState('kod_tovara');
   const [startDate, setStartDate] = useState(`${curYear}-01-01`);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [items, setItems] = useState<ABCItem[]>([]);
-  const [summary, setSummary] = useState<ABCSummary | null>(null);
+  const [items, setItems] = useState<ABCXYZItem[]>([]);
+  const [summary, setSummary] = useState<ABCXYZSummary | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [filterCat, setFilterCat] = useState<'all' | 'A' | 'B' | 'C'>('all');
+  const [filterXYZ, setFilterXYZ] = useState<'all' | 'X' | 'Y' | 'Z'>('all');
 
   const load = useCallback(async (gb: string, sd: string, ed: string) => {
     setLoading(true);
     try {
       const data = await apiClient.getABCAnalysis({ groupby: gb, start_date: sd, end_date: ed });
-      setItems(data.items.map((item) => ({
-        rank: item.rank,
-        name: item.name,
-        volume: item.volume,
-        pct: item.pct,
-        cumulative: item.cumulative,
-        category: item.category,
-      })));
-      setSummary({
-        a_count: data.summary.a_count,
-        b_count: data.summary.b_count,
-        c_count: data.summary.c_count,
-        a_volume: data.summary.a_volume,
-        b_volume: data.summary.b_volume,
-        c_volume: data.summary.c_volume,
-        a_pct: data.summary.a_pct,
-        b_pct: data.summary.b_pct,
-        c_pct: data.summary.c_pct,
-      });
+      setItems(data.items);
+      setSummary(data.summary);
       setTotal(data.total);
     } finally {
       setLoading(false);
@@ -81,7 +73,11 @@ export default function ABCPage() {
 
   useEffect(() => { load(groupby, startDate, endDate); }, []);  // eslint-disable-line
 
-  const filtered = filterCat === 'all' ? items : items.filter((item) => item.category === filterCat);
+  const filtered = items.filter((item) => {
+    const okABC = filterCat === 'all' || item.category === filterCat;
+    const okXYZ = filterXYZ === 'all' || item.xyz_category === filterXYZ;
+    return okABC && okXYZ;
+  });
 
   const pieData = summary ? [
     { name: 'A', value: summary.a_pct, count: summary.a_count },
@@ -95,6 +91,8 @@ export default function ABCPage() {
     category: item.category,
   }));
 
+  const matrixLabels = ['AX', 'AY', 'AZ', 'BX', 'BY', 'BZ', 'CX', 'CY', 'CZ'];
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white">
@@ -102,8 +100,8 @@ export default function ABCPage() {
           <div className="flex items-center gap-3">
             <TrendingUp className="w-7 h-7" />
             <div>
-              <h1 className="text-2xl font-bold">ABC-Анализ</h1>
-              <p className="text-sm text-violet-200">Классификация по объёму продаж</p>
+              <h1 className="text-2xl font-bold">ABC-XYZ Анализ</h1>
+              <p className="text-sm text-violet-200">Объём продаж и стабильность спроса</p>
             </div>
           </div>
           <Link href="/" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-2 text-sm transition">
@@ -145,23 +143,60 @@ export default function ABCPage() {
         </div>
 
         {summary && (
-          <div className="grid grid-cols-3 gap-4">
-            {(['A', 'B', 'C'] as const).map((cat) => (
-              <div key={cat} className={`bg-white rounded-xl shadow-sm p-5 border-l-4 cursor-pointer transition ${filterCat === cat ? 'ring-2 ring-offset-1' : ''}`}
-                style={{ borderLeftColor: CAT_COLORS[cat] }}
-                onClick={() => setFilterCat(filterCat === cat ? 'all' : cat)}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xl font-bold px-3 py-0.5 rounded-full ${CAT_BG[cat]}`}>{cat}</span>
-                  <span className="text-2xl font-bold text-gray-800">{summary[`${cat.toLowerCase() as 'a' | 'b' | 'c'}_pct`]}%</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              {(['A', 'B', 'C'] as const).map((cat) => (
+                <div key={cat} className={`bg-white rounded-xl shadow-sm p-5 border-l-4 cursor-pointer transition ${filterCat === cat ? 'ring-2 ring-offset-1' : ''}`}
+                  style={{ borderLeftColor: CAT_COLORS[cat] }}
+                  onClick={() => setFilterCat(filterCat === cat ? 'all' : cat)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xl font-bold px-3 py-0.5 rounded-full ${CAT_BG[cat]}`}>{cat}</span>
+                    <span className="text-2xl font-bold text-gray-800">{summary[`${cat.toLowerCase() as 'a' | 'b' | 'c'}_pct`]}%</span>
+                  </div>
+                  <p className="text-sm text-gray-500">{summary[`${cat.toLowerCase() as 'a' | 'b' | 'c'}_count`]} позиций</p>
+                  <p className="text-sm font-semibold text-gray-700 mt-1">{fmt(summary[`${cat.toLowerCase() as 'a' | 'b' | 'c'}_volume`])} кг</p>
                 </div>
-                <p className="text-sm text-gray-500">{summary[`${cat.toLowerCase() as 'a' | 'b' | 'c'}_count`]} позиций</p>
-                <p className="text-sm font-semibold text-gray-700 mt-1">{fmt(summary[`${cat.toLowerCase() as 'a' | 'b' | 'c'}_volume`])} кг</p>
-                <p className="text-xs text-gray-400 mt-2">
-                  {cat === 'A' ? '20% позиций → 80% объёма' : cat === 'B' ? 'следующие 15% объёма' : 'оставшиеся 5% объёма'}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {(['X', 'Y', 'Z'] as const).map((cat) => (
+                <div key={cat} className={`bg-white rounded-xl shadow-sm p-5 border-l-4 cursor-pointer transition ${filterXYZ === cat ? 'ring-2 ring-offset-1' : ''}`}
+                  style={{ borderLeftColor: XYZ_COLORS[cat] }}
+                  onClick={() => setFilterXYZ(filterXYZ === cat ? 'all' : cat)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xl font-bold px-3 py-0.5 rounded-full ${XYZ_BG[cat]}`}>{cat}</span>
+                    <span className="text-2xl font-bold text-gray-800">{summary[`${cat.toLowerCase() as 'x' | 'y' | 'z'}_pct`]}%</span>
+                  </div>
+                  <p className="text-sm text-gray-500">{summary[`${cat.toLowerCase() as 'x' | 'y' | 'z'}_count`]} позиций</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {summary && (
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-700">Матрица ABC-XYZ</h3>
+              <p className="text-xs text-gray-400">Количество позиций и объём по каждому сегменту</p>
+            </div>
+            <div className="grid grid-cols-3 lg:grid-cols-9 gap-3">
+              {matrixLabels.map((label) => {
+                const cell = summary.matrix?.[label] || { count: 0, volume: 0 };
+                return (
+                  <div key={label} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-bold text-gray-800">{label}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${CAT_BG[label[0]]}`}>{cell.count}</span>
+                    </div>
+                    <p className="text-xs text-gray-500">{fmt(cell.volume)} кг</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -198,12 +233,24 @@ export default function ABCPage() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="font-semibold text-gray-700">
-              {filtered.length} позиций {filterCat !== 'all' ? `(категория ${filterCat})` : ''}
+              {filtered.length} позиций {filterCat !== 'all' ? `(ABC ${filterCat})` : ''}{filterXYZ !== 'all' ? ` (XYZ ${filterXYZ})` : ''}
             </span>
             <div className="flex gap-1">
               {(['all', 'A', 'B', 'C'] as const).map((cat) => (
                 <button key={cat} onClick={() => setFilterCat(cat)}
                   className={`px-3 py-1 text-xs rounded-full transition ${filterCat === cat ? 'bg-violet-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+                >
+                  {cat === 'all' ? 'Все' : cat}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="px-5 py-2 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-xs text-gray-500">XYZ фильтр</span>
+            <div className="flex gap-1">
+              {(['all', 'X', 'Y', 'Z'] as const).map((cat) => (
+                <button key={cat} onClick={() => setFilterXYZ(cat)}
+                  className={`px-3 py-1 text-xs rounded-full transition ${filterXYZ === cat ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
                 >
                   {cat === 'all' ? 'Все' : cat}
                 </button>
@@ -219,12 +266,15 @@ export default function ABCPage() {
                   <th className="px-4 py-3 text-right">Объём (кг)</th>
                   <th className="px-4 py-3 text-right">% от итога</th>
                   <th className="px-4 py-3 text-right">Накоп. %</th>
-                  <th className="px-4 py-3 text-center">Категория</th>
+                  <th className="px-4 py-3 text-center">ABC</th>
+                  <th className="px-4 py-3 text-center">XYZ</th>
+                  <th className="px-4 py-3 text-right">CV %</th>
+                  <th className="px-4 py-3 text-center">Матрица</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loading ? (
-                  <tr><td colSpan={6} className="py-12 text-center text-gray-400">Загрузка...</td></tr>
+                  <tr><td colSpan={9} className="py-12 text-center text-gray-400">Загрузка...</td></tr>
                 ) : filtered.map((item) => (
                   <tr key={item.rank} className="hover:bg-gray-50">
                     <td className="px-4 py-2.5 text-center text-gray-400 text-xs">{item.rank}</td>
@@ -242,6 +292,11 @@ export default function ABCPage() {
                     <td className="px-4 py-2.5 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${CAT_BG[item.category]}`}>{item.category}</span>
                     </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${XYZ_BG[item.xyz_category]}`}>{item.xyz_category}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{item.variation}%</td>
+                    <td className="px-4 py-2.5 text-center text-gray-700 font-semibold">{item.matrix}</td>
                   </tr>
                 ))}
               </tbody>

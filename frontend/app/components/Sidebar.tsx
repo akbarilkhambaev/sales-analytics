@@ -24,7 +24,6 @@ import {
   UserCheck,
   ChevronLeft,
   ChevronRight,
-  Home,
   ClipboardList,
   TrendingUp,
   Settings2,
@@ -54,13 +53,13 @@ const NAV_SECTIONS: NavSection[] = [
     color: 'text-blue-600',
     items: [
       { href: '/plan-fact',  label: 'План-факт',         icon: Target,      color: 'text-red-500' },
-      { href: '/dashboard',  label: 'Дашборд',           icon: LineChart,   color: 'text-cyan-500' },
+      // { href: '/dashboard',  label: 'Дашборд',           icon: LineChart,   color: 'text-cyan-500' },
       { href: '/products',   label: 'Все продукты',      icon: Package,     color: 'text-blue-500' },
       { href: '/groups',     label: 'По группам',        icon: Tag,         color: 'text-green-500' },
       { href: '/hierarchy',  label: 'Перечень товаров',  icon: PackageOpen, color: 'text-purple-500' },
       { href: '/colors',     label: 'Продукты по цветам',icon: Palette,     color: 'text-orange-500' },
-      { href: '/clients',         label: 'Клиентская база',   icon: Users,       color: 'text-pink-500' },
-      { href: '/analytics/abc',  label: 'ABC-анализ',        icon: TrendingUp,  color: 'text-teal-500' },
+      { href: '/clients',           label: 'Клиентская база', icon: Users,       color: 'text-pink-500' },
+      { href: '/analytics/abc',     label: 'ABC-анализ',      icon: TrendingUp,  color: 'text-teal-500' },
     ],
   },
   {
@@ -166,7 +165,7 @@ export default function Sidebar() {
           `}
           title={collapsed ? 'Карта продаж' : undefined}
         >
-          <MapPin className="w-4 h-4 shrink-0 text-blue-500" />
+          <MapPin className={`w-4 h-4 shrink-0 ${pathname === '/' ? 'text-blue-600' : 'text-gray-400'}`} />
           {!collapsed && <span>Карта продаж</span>}
         </Link>
       </div>
@@ -184,7 +183,7 @@ export default function Sidebar() {
               {/* Section header */}
               {!collapsed && (
                 <div className={`flex items-center gap-2 px-2 mb-1`}>
-                  <SectionIcon className={`w-3.5 h-3.5 ${section.color}`} />
+                  <SectionIcon className="w-3.5 h-3.5 text-gray-400" />
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                     {section.title}
                   </span>
@@ -215,7 +214,7 @@ export default function Sidebar() {
                       `}
                       title={collapsed ? item.label : undefined}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : item.color}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
                     </Link>
                   );
@@ -239,7 +238,7 @@ export default function Sidebar() {
           `}
           title={collapsed ? 'Профиль' : undefined}
         >
-          <RoleIcon className="w-4 h-4 shrink-0 text-gray-400" />
+          <RoleIcon className={`w-4 h-4 shrink-0 ${pathname === '/profile' ? 'text-blue-600' : 'text-gray-400'}`} />
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="truncate font-medium text-gray-700">{user.username}</div>

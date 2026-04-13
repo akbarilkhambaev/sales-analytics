@@ -199,8 +199,15 @@ class ApiClient {
   // ─── АНАЛИТИКА ───────────────────────────────────────────────────────────────
 
   getABCAnalysis(params: { groupby?: string; start_date?: string; end_date?: string; limit?: number }): Promise<{
-    items: { rank: number; name: string; volume: number; pct: number; cumulative: number; category: 'A' | 'B' | 'C' }[];
-    summary: { a_count: number; b_count: number; c_count: number; a_volume: number; b_volume: number; c_volume: number; a_pct: number; b_pct: number; c_pct: number };
+    items: { rank: number; name: string; volume: number; pct: number; cumulative: number; category: 'A' | 'B' | 'C'; xyz_category: 'X' | 'Y' | 'Z'; variation: number; matrix: string }[];
+    summary: {
+      a_count: number; b_count: number; c_count: number;
+      a_volume: number; b_volume: number; c_volume: number;
+      a_pct: number; b_pct: number; c_pct: number;
+      x_count: number; y_count: number; z_count: number;
+      x_pct: number; y_pct: number; z_pct: number;
+      matrix: Record<string, { count: number; volume: number }>;
+    };
     total: number;
   }> {
     return this.fetch('/analytics/abc/', params as Record<string, string>);

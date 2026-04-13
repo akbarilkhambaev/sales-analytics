@@ -1,13 +1,14 @@
 """
 Аналитические представления:
-  - ABCAnalysisView: ABC-анализ товаров/групп/регионов
-  - MonthlyTrendView: тренд продаж по месяцам для выбранного среза
+    - ABCAnalysisView: ABC-XYZ анализ товаров/групп/регионов
+    - MonthlyTrendView: тренд продаж по месяцам для выбранного среза
 """
 from django.db.models import Sum, Q
 from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from datetime import date, datetime
 
 from .models import Sale, SalesPlan
 from .utils import safe_kol_vo_sum
@@ -22,13 +23,69 @@ GROUPBY_FIELDS = {
 }
 
 ABC_THRESHOLDS = (80.0, 95.0)  # A ≤ 80%, B ≤ 95%, C остальное
+XYZ_THRESHOLDS = (10.0, 25.0)  # X ≤ 10%, Y ≤ 25%, Z остальное
+
+
+def _empty_abcxyz_summary() -> dict:
+    matrix = {
+        f'{abc_cat}{xyz_cat}': {'count': 0, 'volume': 0}
+        for abc_cat in ('A', 'B', 'C')
+        for xyz_cat in ('X', 'Y', 'Z')
+    }
+    return {
+        'a_count': 0,
+        'b_count': 0,
+        'c_count': 0,
+        'a_volume': 0,
+        'b_volume': 0,
+        'c_volume': 0,
+        'a_pct': 0,
+        'b_pct': 0,
+        'c_pct': 0,
+        'x_count': 0,
+        'y_count': 0,
+        'z_count': 0,
+        'x_pct': 0,
+        'y_pct': 0,
+        'z_pct': 0,
+        'matrix': matrix,
+    }
+
+
+def _month_range(start_date: str, end_date: str, observed_months: set[str]) -> list[str]:
+    if start_date and end_date:
+        start = datetime.strptime(start_date, '%Y-%m-%d').date().replace(day=1)
+        end = datetime.strptime(end_date, '%Y-%m-%d').date().replace(day=1)
+        months: list[str] = []
+        current = start
+        while current <= end:
+            months.append(current.strftime('%Y-%m'))
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+        return months
+
+    if observed_months:
+        return sorted(observed_months)
+
+    today = date.today()
+    return [today.strftime('%Y-%m')]
+
+
+def _xyz_category(variation: float) -> str:
+    if variation <= XYZ_THRESHOLDS[0]:
+        return 'X'
+    if variation <= XYZ_THRESHOLDS[1]:
+        return 'Y'
+    return 'Z'
 
 
 class ABCAnalysisView(APIView):
     """
     GET /api/analytics/abc/
     Params:
-      groupby  — tovary | kod_tovara | gruppa_tovara | region | cvet  (default: gruppa_tovara)
+            groupby  — tovary | kod_tovara | gruppa_tovara | region | cvet  (default: kod_tovara)
       start_date, end_date — YYYY-MM-DD
       limit    — int (default 200)
     """
@@ -44,7 +101,7 @@ class ABCAnalysisView(APIView):
         if groupby not in GROUPBY_FIELDS:
             return Response({'error': f'Некорректный groupby: {groupby}'}, status=400)
 
-        cache_key = f'abc_{groupby}_{start_date}_{end_date}_{limit}'
+        cache_key = f'abcxyz_v1_{groupby}_{start_date}_{end_date}_{limit}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
@@ -64,32 +121,79 @@ class ABCAnalysisView(APIView):
 
         total = sum(float(r['volume'] or 0) for r in rows)
         if total == 0:
-            return Response({'items': [], 'summary': {}, 'total': 0})
+            return Response({'items': [], 'summary': _empty_abcxyz_summary(), 'total': 0})
+
+        top_names = [row[db_field] for row in rows if row[db_field]]
+
+        from django.db.models.functions import Substr
+        month_rows = (
+            qs.filter(**{f'{db_field}__in': top_names})
+            .annotate(ym=Substr('data', 1, 7))
+            .values('ym', db_field)
+            .annotate(volume=safe_kol_vo_sum())
+            .order_by('ym', db_field)
+        )
+
+        observed_months: set[str] = set()
+        month_map: dict[str, dict[str, float]] = {name: {} for name in top_names}
+        for row in month_rows:
+            ym = row['ym'] or ''
+            name = row[db_field] or ''
+            if not ym or not name:
+                continue
+            observed_months.add(ym)
+            month_map.setdefault(name, {})[ym] = float(row['volume'] or 0)
+
+        months = _month_range(start_date, end_date, observed_months)
 
         items = []
         cumulative = 0.0
         for rank, row in enumerate(rows, start=1):
+            name = row[db_field]
             vol = float(row['volume'] or 0)
             pct = round(vol / total * 100, 2)
             cumulative += pct
             if cumulative <= ABC_THRESHOLDS[0]:
-                cat = 'A'
+                abc_cat = 'A'
             elif cumulative <= ABC_THRESHOLDS[1]:
-                cat = 'B'
+                abc_cat = 'B'
             else:
-                cat = 'C'
+                abc_cat = 'C'
+
+            monthly_values = [month_map.get(name, {}).get(month, 0.0) for month in months]
+            mean = sum(monthly_values) / len(monthly_values) if monthly_values else 0.0
+            variance = sum((value - mean) ** 2 for value in monthly_values) / len(monthly_values) if monthly_values else 0.0
+            std_dev = variance ** 0.5
+            variation = round((std_dev / mean * 100) if mean else 0.0, 2)
+            xyz_cat = _xyz_category(variation)
             items.append({
                 'rank':       rank,
-                'name':       row[db_field],
+                'name':       name,
                 'volume':     round(vol, 2),
                 'pct':        pct,
                 'cumulative': round(cumulative, 2),
-                'category':   cat,
+                'category':   abc_cat,
+                'xyz_category': xyz_cat,
+                'variation':  variation,
+                'matrix':     f'{abc_cat}{xyz_cat}',
             })
 
         a_items = [i for i in items if i['category'] == 'A']
         b_items = [i for i in items if i['category'] == 'B']
         c_items = [i for i in items if i['category'] == 'C']
+        x_items = [i for i in items if i['xyz_category'] == 'X']
+        y_items = [i for i in items if i['xyz_category'] == 'Y']
+        z_items = [i for i in items if i['xyz_category'] == 'Z']
+
+        matrix_summary = {}
+        for abc_cat in ('A', 'B', 'C'):
+            for xyz_cat in ('X', 'Y', 'Z'):
+                key = f'{abc_cat}{xyz_cat}'
+                bucket = [i for i in items if i['matrix'] == key]
+                matrix_summary[key] = {
+                    'count': len(bucket),
+                    'volume': round(sum(i['volume'] for i in bucket), 2),
+                }
 
         summary = {
             'a_count':  len(a_items),
@@ -101,6 +205,13 @@ class ABCAnalysisView(APIView):
             'a_pct':    round(sum(i['pct'] for i in a_items), 1),
             'b_pct':    round(sum(i['pct'] for i in b_items), 1),
             'c_pct':    round(sum(i['pct'] for i in c_items), 1),
+            'x_count':  len(x_items),
+            'y_count':  len(y_items),
+            'z_count':  len(z_items),
+            'x_pct':    round(sum(i['pct'] for i in x_items), 1),
+            'y_pct':    round(sum(i['pct'] for i in y_items), 1),
+            'z_pct':    round(sum(i['pct'] for i in z_items), 1),
+            'matrix':   matrix_summary,
         }
 
         result = {'items': items, 'summary': summary, 'total': round(total, 2)}
