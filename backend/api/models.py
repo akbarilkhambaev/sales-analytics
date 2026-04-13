@@ -233,6 +233,14 @@ class ReadySale(models.Model):
         null=True,
         blank=True
     )
+    kod_tovara = models.CharField(
+        max_length=100,
+        verbose_name="Код товара",
+        db_column="КОД_ТОВАРА",
+        db_index=True,
+        null=True,
+        blank=True
+    )
     gruppa_tovara = models.CharField(
         max_length=100,
         verbose_name="Группа товара",
@@ -241,6 +249,22 @@ class ReadySale(models.Model):
         null=True,
         blank=True,
         help_text="Группа товара из таблицы sales (по коду товара)"
+    )
+    cvet = models.CharField(
+        max_length=100,
+        verbose_name="Цвет",
+        db_column="ЦВЕТ",
+        db_index=True,
+        null=True,
+        blank=True
+    )
+    profil_perechen = models.CharField(
+        max_length=100,
+        verbose_name="Профиль перечень",
+        db_column="профиль_перечень",
+        db_index=True,
+        null=True,
+        blank=True
     )
     year = models.IntegerField(
         verbose_name="Год",
@@ -269,6 +293,7 @@ class ReadySale(models.Model):
             models.Index(fields=['data', 'diler']),
             models.Index(fields=['gruppa_produktov', 'data']),
             models.Index(fields=['tovary', 'year']),
+            models.Index(fields=['kod_tovara', 'year'], name='ready_sales_kod_year_idx'),
             models.Index(fields=['klient', 'data']),
             models.Index(fields=['region', 'diler']),
         ]
@@ -433,6 +458,29 @@ class SchetaMapping(models.Model):
 
     def __str__(self):
         return f"{self.scheta} → {self.region or '?'}"
+
+
+class DilerMapping(models.Model):
+    """Справочник: Дилер из ReadySale -> Регион"""
+
+    diler = models.CharField(max_length=255, unique=True, db_index=True, verbose_name='Дилер')
+    region = models.CharField(max_length=100, null=True, blank=True, verbose_name='Регион')
+    is_mapped = models.BooleanField(default=False, verbose_name='Сопоставлен')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'diler_mapping'
+        verbose_name = 'Маппинг дилера'
+        verbose_name_plural = 'Маппинг дилеров'
+        ordering = ['is_mapped', 'diler']
+
+    def save(self, *args, **kwargs):
+        self.is_mapped = bool(self.region)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.diler} → {self.region or '?'}"
 
 
 class ExpenseCategory(models.Model):

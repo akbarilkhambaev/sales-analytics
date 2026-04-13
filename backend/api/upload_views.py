@@ -186,6 +186,7 @@ class ExcelUploadView(APIView):
         
         records_added = 0
         errors = []
+        mapping_cache = {m.tovary: m for m in TovaryMapping.objects.all()}
         
         # Определяем год и лист из имени файла или данных
         year = None
@@ -215,9 +216,19 @@ class ExcelUploadView(APIView):
                             if parsed_date and not year:
                                 year = parsed_date.year
                         
+                        tovary_val = str(row.get('ТОВАРЫ', '')).strip() if pd.notna(row.get('ТОВАРЫ')) else ''
+                        kod_val = str(row.get('КОД_ТОВАРА', '')).strip() if pd.notna(row.get('КОД_ТОВАРА')) else ''
+                        m = mapping_cache.get(tovary_val) if tovary_val else None
+
+                        resolved_kod = kod_val or (m.kod_tovara if m else None)
+                        resolved_gruppa = (str(row.get('Группа_товара', '')).strip() if pd.notna(row.get('Группа_товара')) else '') or (m.gruppa_tovara if m else None)
+                        resolved_cvet = (str(row.get('ЦВЕТ', '')).strip() if pd.notna(row.get('ЦВЕТ')) else '') or (m.cvet if m else None)
+                        resolved_profil = (str(row.get('профиль_перечень', '')).strip() if pd.notna(row.get('профиль_перечень')) else '') or (m.profil_perechen if m else None)
+
                         ready_sale = ReadySale(
                             data=parsed_date,
                             diler=str(row.get('Дилер', '')) if pd.notna(row.get('Дилер')) else None,
+                            region=str(row.get('Регион', '')).strip() if pd.notna(row.get('Регион')) else None,
                             klient_id=float(row.get('Клиент_ИД')) if pd.notna(row.get('Клиент_ИД')) else None,
                             klient=str(row.get('Клиент', '')),
                             invoice_sid=int(row.get('Инвоиcе_CИД')) if pd.notna(row.get('Инвоиcе_CИД')) else None,
@@ -230,7 +241,11 @@ class ExcelUploadView(APIView):
                             obshchaya_summa=float(row.get('Общая_сумма')) if pd.notna(row.get('Общая_сумма')) else None,
                             dokhod=float(row.get('Доход')) if pd.notna(row.get('Доход')) else None,
                             valyuta=str(row.get('Валюта', '')) if pd.notna(row.get('Валюта')) else None,
-                            tovary=str(row.get('ТОВАРЫ', '')) if pd.notna(row.get('ТОВАРЫ')) else None,
+                            tovary=tovary_val or None,
+                            kod_tovara=resolved_kod or None,
+                            gruppa_tovara=resolved_gruppa or None,
+                            cvet=resolved_cvet or None,
+                            profil_perechen=resolved_profil or None,
                             year=year,
                             sheet_name=sheet_name,
                         )

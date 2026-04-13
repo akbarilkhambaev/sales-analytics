@@ -7,7 +7,16 @@ import {
   RefreshCw, Zap, X, Check, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { SchetaMappingItem } from '@/lib/types';
+import { DilerMappingItem, SchetaMappingItem } from '@/lib/types';
+
+type SourceMode = 'scheta' | 'diler';
+type RegionMappingItem = {
+  id: number;
+  keyValue: string;
+  region: string | null;
+  is_mapped: boolean;
+  updated_at: string | null;
+};
 
 type EditState = {
   id: number;
@@ -15,7 +24,8 @@ type EditState = {
 };
 
 export default function RegionMappingPage() {
-  const [items, setItems]           = useState<SchetaMappingItem[]>([]);
+  const [source, setSource]         = useState<SourceMode>('scheta');
+  const [items, setItems]           = useState<RegionMappingItem[]>([]);
   const [total, setTotal]           = useState(0);
   const [unmapped, setUnmapped]     = useState(0);
   const [regions, setRegions]       = useState<string[]>([]);
@@ -33,15 +43,27 @@ export default function RegionMappingPage() {
   const PER_PAGE = 50;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (s: string, mapped: 'all' | 'true' | 'false', p = 1) => {
+  const normalizeItem = useCallback((item: SchetaMappingItem | DilerMappingItem): RegionMappingItem => {
+    return {
+      id: item.id,
+      keyValue: 'scheta' in item ? item.scheta : item.diler,
+      region: item.region,
+      is_mapped: item.is_mapped,
+      updated_at: item.updated_at,
+    };
+  }, []);
+
+  const load = useCallback(async (mode: SourceMode, s: string, mapped: 'all' | 'true' | 'false', p = 1) => {
     setLoading(true);
     setError(null);
     try {
       const params: { search?: string; mapped?: 'true' | 'false'; page?: number; per_page?: number } = { page: p, per_page: PER_PAGE };
       if (s) params.search = s;
       if (mapped !== 'all') params.mapped = mapped;
-      const data = await apiClient.getSchetaMapping(params);
-      setItems(data.results);
+      const data = mode === 'scheta'
+        ? await apiClient.getSchetaMapping(params)
+        : await apiClient.getDilerMapping(params);
+      setItems(data.results.map(normalizeItem));
       setTotal(data.total);
       setUnmapped(data.unmapped);
       setPage(data.page);
@@ -53,27 +75,32 @@ export default function RegionMappingPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [normalizeItem]);
 
-  useEffect(() => { load('', 'all', 1); }, []);  // eslint-disable-line
+  useEffect(() => {
+    setSearch('');
+    setFilterMapped('all');
+    setEditState(null);
+    load(source, '', 'all', 1);
+  }, [source, load]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => load(val, filterMapped, 1), 400);
+    searchTimer.current = setTimeout(() => load(source, val, filterMapped, 1), 400);
   };
 
   const handleFilter = (val: 'all' | 'true' | 'false') => {
     setFilterMapped(val);
-    load(search, val, 1);
+    load(source, search, val, 1);
   };
 
   const goToPage = (p: number) => {
     if (p < 1 || p > pages) return;
-    load(search, filterMapped, p);
+    load(source, search, filterMapped, p);
   };
 
-  const startEdit = (item: SchetaMappingItem) => {
+  const startEdit = (item: RegionMappingItem) => {
     setEditState({ id: item.id, region: item.region ?? '' });
   };
 
@@ -83,14 +110,15 @@ export default function RegionMappingPage() {
     if (!editState) return;
     setSaving(true);
     try {
-      const updated = await apiClient.updateSchetaMapping(editState.id, {
-        region: editState.region || null,
-      });
-      setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+      const updated = source === 'scheta'
+        ? await apiClient.updateSchetaMapping(editState.id, { region: editState.region || null })
+        : await apiClient.updateDilerMapping(editState.id, { region: editState.region || null });
+      const normalized = normalizeItem(updated);
+      setItems(prev => prev.map(i => i.id === normalized.id ? normalized : i));
       setUnmapped(prev => {
-        const was = items.find(i => i.id === updated.id);
-        if (was && !was.is_mapped && updated.is_mapped) return prev - 1;
-        if (was && was.is_mapped && !updated.is_mapped) return prev + 1;
+        const was = items.find(i => i.id === normalized.id);
+        if (was && !was.is_mapped && normalized.is_mapped) return prev - 1;
+        if (was && was.is_mapped && !normalized.is_mapped) return prev + 1;
         return prev;
       });
       setEditState(null);
@@ -105,9 +133,11 @@ export default function RegionMappingPage() {
     setApplying(true);
     setApplyResult(null);
     try {
-      const result = await apiClient.syncSchetaMapping();
+      const result = source === 'scheta'
+        ? await apiClient.syncSchetaMapping()
+        : await apiClient.syncDilerMapping();
       setApplyResult(`Синхронизация: ${result.message}`);
-      load(search, filterMapped, 1);
+      load(source, search, filterMapped, 1);
     } catch (e) {
       setApplyResult(e instanceof Error ? e.message : 'Ошибка синхронизации');
     } finally {
@@ -119,7 +149,9 @@ export default function RegionMappingPage() {
     setApplying(true);
     setApplyResult(null);
     try {
-      const result = await apiClient.applySchetaMapping();
+      const result = source === 'scheta'
+        ? await apiClient.applySchetaMapping()
+        : await apiClient.applyDilerMapping();
       setApplyResult(result.message);
     } catch (e) {
       setApplyResult(e instanceof Error ? e.message : 'Ошибка применения');
@@ -135,7 +167,7 @@ export default function RegionMappingPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold flex items-center gap-3">
-              <MapPin className="w-8 h-8" /> Справочник счетов → регион
+              <MapPin className="w-8 h-8" /> Справочник регионов
             </h1>
             <div className="flex items-center gap-3">
               <Link href="/admin" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2">
@@ -150,11 +182,25 @@ export default function RegionMappingPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow-sm p-2 mb-6 inline-flex gap-2">
+          <button
+            onClick={() => setSource('scheta')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${source === 'scheta' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            Sales: Счета
+          </button>
+          <button
+            onClick={() => setSource('diler')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${source === 'diler' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            Ready Sales: Дилеры
+          </button>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-5">
-            <p className="text-sm text-gray-500">Всего счетов</p>
+            <p className="text-sm text-gray-500">{source === 'scheta' ? 'Всего счетов' : 'Всего дилеров'}</p>
             <p className="text-2xl font-bold text-blue-600">{total.toLocaleString('ru')}</p>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-5">
@@ -175,7 +221,7 @@ export default function RegionMappingPage() {
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
             <RefreshCw size={15} className={applying ? 'animate-spin' : ''} />
-            Синхронизировать счета из продаж
+            {source === 'scheta' ? 'Синхронизировать счета из продаж' : 'Синхронизировать дилеров из ready_sales'}
           </button>
           <button
             onClick={applyMapping}
@@ -183,7 +229,7 @@ export default function RegionMappingPage() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
             <Zap size={15} />
-            Применить к продажам
+            {source === 'scheta' ? 'Применить к продажам' : 'Применить к ready_sales'}
           </button>
           {applyResult && (
             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${
@@ -208,7 +254,7 @@ export default function RegionMappingPage() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Поиск по счёту или региону..."
+              placeholder={source === 'scheta' ? 'Поиск по счёту или региону...' : 'Поиск по дилеру или региону...'}
               value={search}
               onChange={e => handleSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
@@ -236,7 +282,7 @@ export default function RegionMappingPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium w-8">#</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Счёт (СЧЕТЫ)</th>
+                <th className="text-left px-4 py-3 text-gray-500 font-medium">{source === 'scheta' ? 'Счёт (СЧЕТЫ)' : 'Дилер'}</th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium w-56">Регион</th>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium w-36">Обновлён</th>
                 <th className="text-right px-4 py-3 text-gray-500 font-medium w-28">Действие</th>
@@ -266,7 +312,7 @@ export default function RegionMappingPage() {
                   >
                     <td className="px-4 py-2.5 text-gray-400 text-xs">{rowNum}</td>
                     <td className="px-4 py-2.5">
-                      <span className="font-medium text-gray-800">{item.scheta}</span>
+                      <span className="font-medium text-gray-800">{item.keyValue}</span>
                       {!item.is_mapped && (
                         <span className="ml-2 text-xs text-amber-600 font-medium">не сопоставлен</span>
                       )}

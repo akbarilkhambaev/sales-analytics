@@ -38,6 +38,7 @@ import type {
   PlanFactFilters,
   TovaryMappingItem,
   SchetaMappingItem,
+  DilerMappingItem,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -1061,6 +1062,53 @@ class ApiClient {
   async syncSchetaMapping(): Promise<{ added: number; message: string }> {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     const response = await fetch(`${this.baseUrl}/scheta-mapping/sync/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка синхронизации');
+    return json;
+  }
+
+  getDilerMapping(params?: { search?: string; mapped?: 'true' | 'false'; page?: number; per_page?: number }): Promise<{
+    results: DilerMappingItem[];
+    total: number;
+    unmapped: number;
+    page: number;
+    per_page: number;
+    pages: number;
+    count: number;
+    regions: string[];
+  }> {
+    return this.fetch('/diler-mapping/', params as Record<string, string>);
+  }
+
+  async updateDilerMapping(id: number, data: { region: string | null }): Promise<DilerMappingItem> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/diler-mapping/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(data),
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка обновления');
+    return json;
+  }
+
+  async applyDilerMapping(): Promise<{ fixed: number; message: string }> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/diler-mapping/apply/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Ошибка применения');
+    return json;
+  }
+
+  async syncDilerMapping(): Promise<{ added: number; updated?: number; message: string }> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const response = await fetch(`${this.baseUrl}/diler-mapping/sync/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });

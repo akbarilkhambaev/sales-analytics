@@ -4,7 +4,7 @@ from rest_framework import status
 from django.db.models import Q
 from django.core.paginator import Paginator
 from authentication.permissions import CanUpload
-from .models import TovaryMapping, Sale
+from .models import TovaryMapping, Sale, ReadySale
 
 FIELD_MAP = {
     'kod_tovara':     'kod_tovara',
@@ -135,44 +135,72 @@ class TovaryMappingDetailView(APIView):
 class TovaryMappingApplyView(APIView):
     """
     POST /api/tovary-mapping/apply/
-    Проходит по всем Sale записям где КОД_ТОВАРА=NULL (или ГРУППА=NULL)
+    Проходит по записям Sale и ReadySale, где поля товарного маппинга пустые,
     и подставляет данные из справочника.
     """
     permission_classes = [CanUpload]
 
     def post(self, request):
-        # Загружаем весь справочник в память для быстрого поиска
         mapping = {
             m.tovary: m
             for m in TovaryMapping.objects.filter(is_coded=True)
         }
 
-        # Находим записи Sale где товары есть, но коды не заполнены
+        def apply_mapping(queryset, fields_to_update):
+            total = queryset.count()
+            fixed = 0
+            skipped = 0
+
+            for obj in queryset.iterator(chunk_size=1000):
+                m = mapping.get(obj.tovary)
+                if not m:
+                    skipped += 1
+                    continue
+
+                if hasattr(obj, 'kod_tovara'):
+                    obj.kod_tovara = m.kod_tovara or obj.kod_tovara
+                obj.gruppa_tovara = m.gruppa_tovara or obj.gruppa_tovara
+                if hasattr(obj, 'cvet'):
+                    obj.cvet = m.cvet or obj.cvet
+                if hasattr(obj, 'profil_perechen'):
+                    obj.profil_perechen = m.profil_perechen or obj.profil_perechen
+                obj.save(update_fields=fields_to_update)
+                fixed += 1
+
+            return total, fixed, skipped
+
         sales_to_fix = Sale.objects.filter(
             Q(kod_tovara__isnull=True) | Q(kod_tovara='') |
             Q(gruppa_tovara__isnull=True) | Q(gruppa_tovara='')
         ).exclude(tovary__isnull=True).exclude(tovary='')
 
-        total = sales_to_fix.count()
-        fixed = 0
-        skipped = 0
+        ready_sales_to_fix = ReadySale.objects.filter(
+            Q(kod_tovara__isnull=True) | Q(kod_tovara='') |
+            Q(gruppa_tovara__isnull=True) | Q(gruppa_tovara='')
+        ).exclude(tovary__isnull=True).exclude(tovary='')
 
-        for sale in sales_to_fix.iterator(chunk_size=1000):
-            m = mapping.get(sale.tovary)
-            if not m:
-                skipped += 1
-                continue
-
-            sale.kod_tovara      = m.kod_tovara      or sale.kod_tovara
-            sale.gruppa_tovara   = m.gruppa_tovara   or sale.gruppa_tovara
-            sale.cvet            = m.cvet            or sale.cvet
-            sale.profil_perechen = m.profil_perechen or sale.profil_perechen
-            sale.save(update_fields=['kod_tovara', 'gruppa_tovara', 'cvet', 'profil_perechen'])
-            fixed += 1
+        sale_total, sale_fixed, sale_skipped = apply_mapping(
+            sales_to_fix,
+            ['kod_tovara', 'gruppa_tovara', 'cvet', 'profil_perechen']
+        )
+        ready_total, ready_fixed, ready_skipped = apply_mapping(
+            ready_sales_to_fix,
+            ['kod_tovara', 'gruppa_tovara', 'cvet', 'profil_perechen']
+        )
 
         return Response({
-            'total':   total,
-            'fixed':   fixed,
-            'skipped': skipped,
-            'message': f'Обновлено {fixed} из {total} записей',
+            'sale': {
+                'total': sale_total,
+                'fixed': sale_fixed,
+                'skipped': sale_skipped,
+            },
+            'ready_sale': {
+                'total': ready_total,
+                'fixed': ready_fixed,
+                'skipped': ready_skipped,
+            },
+            'total': sale_total + ready_total,
+            'fixed': sale_fixed + ready_fixed,
+            'skipped': sale_skipped + ready_skipped,
+            'message': f'Обновлено {sale_fixed + ready_fixed} из {sale_total + ready_total} записей',
         })

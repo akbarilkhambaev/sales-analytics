@@ -19,6 +19,14 @@ export interface SchetaMappingItem {
   updated_at: string | null;
 }
 
+export interface DilerMappingItem {
+  id: number;
+  diler: string;
+  region: string | null;
+  is_mapped: boolean;
+  updated_at: string | null;
+}
+
 export interface YearValue {
   value: number;
   pieces?: number;

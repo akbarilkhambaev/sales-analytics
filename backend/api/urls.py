@@ -11,6 +11,7 @@ from .clientcard_views import ClientCardViewSet
 from .visitreport_views import ClientVisitReportViewSet
 from .planfact_views import PlanFactViewSet
 from .schetamapping_views import SchetaMappingListView, SchetaMappingDetailView, SchetaMappingApplyView, SchetaMappingSyncView
+from .dilermapping_views import DilerMappingListView, DilerMappingDetailView, DilerMappingApplyView, DilerMappingSyncView
 from .analytics_views import ABCAnalysisView, MonthlyTrendView, RegionMapView, RegionMapFiltersView
 from .market_views import MarketDataView
 from .kanban_views import KanbanColumnViewSet, KanbanTaskViewSet, KanbanUsersView
@@ -62,6 +63,10 @@ urlpatterns = [
     path('scheta-mapping/sync/', SchetaMappingSyncView.as_view(), name='scheta-mapping-sync'),
     path('scheta-mapping/apply/', SchetaMappingApplyView.as_view(), name='scheta-mapping-apply'),
     path('scheta-mapping/<int:pk>/', SchetaMappingDetailView.as_view(), name='scheta-mapping-detail'),
+    path('diler-mapping/', DilerMappingListView.as_view(), name='diler-mapping-list'),
+    path('diler-mapping/sync/', DilerMappingSyncView.as_view(), name='diler-mapping-sync'),
+    path('diler-mapping/apply/', DilerMappingApplyView.as_view(), name='diler-mapping-apply'),
+    path('diler-mapping/<int:pk>/', DilerMappingDetailView.as_view(), name='diler-mapping-detail'),
     path('market/data/', MarketDataView.as_view(), name='market-data'),
     path('kpi/summary/', KPISummaryView.as_view(), name='kpi-summary'),
     path('kpi/managers/', KPIManagersView.as_view(), name='kpi-managers'),
