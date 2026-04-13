@@ -6,6 +6,12 @@
 set -e
 APP_DIR="/var/www/sales-analytics"
 
+echo "▸ Обновление systemd и nginx конфигов"
+cp "$APP_DIR/deploy/gunicorn.service" /etc/systemd/system/sales-gunicorn.service
+cp "$APP_DIR/deploy/nextjs.service" /etc/systemd/system/sales-nextjs.service
+cp "$APP_DIR/deploy/nginx.conf" /etc/nginx/sites-available/sales-analytics
+systemctl daemon-reload
+
 echo "▸ Backend: миграции + collectstatic"
 cd "$APP_DIR/backend"
 source venv/bin/activate
