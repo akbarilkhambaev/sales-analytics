@@ -550,7 +550,7 @@ export default function MapPage() {
                       }}
                     />
                   </div>
-                  <div className="flex gap-2 text-xs mt-0.5">
+                  <div className="flex flex-col gap-0.5 text-xs mt-0.5">
                     <span className="text-gray-300">Факт: {fmt(reg.volume)} кг</span>
                     {reg.plan > 0 && (
                       <>
