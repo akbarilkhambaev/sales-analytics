@@ -550,7 +550,15 @@ export default function MapPage() {
                       }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{fmt(reg.volume)} кг</p>
+                  <div className="flex gap-2 text-xs mt-0.5">
+                    <span className="text-gray-300">Факт: {fmt(reg.volume)} кг</span>
+                    {reg.plan > 0 && (
+                      <>
+                        <span className="text-emerald-400">План: {fmt(reg.plan)} кг</span>
+                        <span className="text-emerald-500">Выполнение: {Math.round(reg.volume / reg.plan * 100)}%</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
               {(!data || data.regions.length === 0) && (
