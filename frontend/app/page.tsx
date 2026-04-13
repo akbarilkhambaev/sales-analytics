@@ -574,12 +574,14 @@ export default function MapPage() {
                       </span>
                       <span className="text-xs text-gray-500">{fmt(wh.volume)} кг</span>
                     </div>
-                    {wh.regions.slice(0, 2).map(r => (
-                      <div key={r.name} className="flex justify-between text-xs text-gray-600">
-                        <span className="truncate max-w-[110px]">{r.name}</span>
-                        <span>{fmt(r.volume)}</span>
-                      </div>
-                    ))}
+                    <div className="max-h-32 overflow-y-auto pr-1">
+                      {wh.regions.map(r => (
+                        <div key={r.name} className="flex justify-between text-xs text-gray-600">
+                          <span className="truncate max-w-[110px]">{r.name}</span>
+                          <span>{fmt(r.volume)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
