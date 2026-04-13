@@ -18,10 +18,21 @@ echo "▸ Frontend: сборка"
 cd "$APP_DIR/frontend"
 npm ci --silent
 npm run build
+
+echo "▸ Frontend: синхронизация standalone-статики"
+mkdir -p .next/standalone/.next
+rm -rf .next/standalone/.next/static
 cp -r .next/static .next/standalone/.next/static
-cp -r public .next/standalone/public 2>/dev/null || true
+
+if [ -d public ]; then
+	rm -rf .next/standalone/public
+	mkdir -p .next/standalone/public
+	cp -r public/. .next/standalone/public/
+fi
 
 echo "▸ Перезапуск сервисов"
 systemctl restart sales-gunicorn sales-nextjs
+nginx -t
+systemctl restart nginx
 
 echo "✅ Обновление завершено"
