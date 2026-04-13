@@ -11,7 +11,6 @@ import {
   Palette,
   Users,
   Database,
-  LineChart,
   Wallet,
   Briefcase,
   FileText,
@@ -36,6 +35,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   color: string;
+  badge?: string;
 }
 
 interface NavSection {
@@ -76,7 +76,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Settings2,
     color: 'text-teal-600',
     items: [
-      { href: '/configurator', label: 'Конфигуратор', icon: Settings2, color: 'text-teal-500' },
+      { href: '/configurator', label: 'Конфигуратор', icon: Settings2, color: 'text-teal-500', badge: 'beta' },
     ],
   },
   {
@@ -215,7 +215,16 @@ export default function Sidebar() {
                       title={collapsed ? item.label : undefined}
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate">{item.label}</span>
+                          {item.badge && (
+                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </Link>
                   );
                 })}
