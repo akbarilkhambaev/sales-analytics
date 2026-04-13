@@ -1,4 +1,5 @@
 from django.core.paginator import Paginator
+from django.db import connection
 from django.db.models import Case, CharField, Count, Q, Value, When
 from rest_framework import status
 from rest_framework.response import Response
@@ -82,16 +83,38 @@ class DilerMappingApplyView(APIView):
     permission_classes = [CanUpload]
 
     def post(self, request):
-        mappings = list(DilerMapping.objects.filter(is_mapped=True).values('diler', 'region'))
-        if not mappings:
+        if not DilerMapping.objects.filter(is_mapped=True).exists():
             return Response({'fixed': 0, 'message': 'Нет маппингов'})
 
-        whens = [When(diler=m['diler'], then=Value(m['region'])) for m in mappings]
-        dilers = [m['diler'] for m in mappings]
+        qn = connection.ops.quote_name
+        ready_table = qn(ReadySale._meta.db_table)
+        ready_diler = qn(ReadySale._meta.get_field('diler').db_column)
+        ready_region = qn(ReadySale._meta.get_field('region').db_column)
+        mapping_table = qn(DilerMapping._meta.db_table)
+        mapping_diler = qn(DilerMapping._meta.get_field('diler').column)
+        mapping_region = qn(DilerMapping._meta.get_field('region').column)
+        mapping_is_mapped = qn(DilerMapping._meta.get_field('is_mapped').column)
 
-        fixed = ReadySale.objects.filter(diler__in=dilers).update(
-            region=Case(*whens, output_field=CharField())
-        )
+        if connection.vendor == 'postgresql':
+            sql = f'''
+                UPDATE {ready_table} AS rs
+                SET {ready_region} = dm.{mapping_region}
+                FROM {mapping_table} AS dm
+                WHERE dm.{mapping_is_mapped} = TRUE
+                  AND rs.{ready_diler} = dm.{mapping_diler}
+                  AND COALESCE(rs.{ready_region}, '') <> COALESCE(dm.{mapping_region}, '')
+            '''
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                fixed = cursor.rowcount
+        else:
+            mappings = list(DilerMapping.objects.filter(is_mapped=True).values('diler', 'region'))
+            whens = [When(diler=m['diler'], then=Value(m['region'])) for m in mappings]
+            dilers = [m['diler'] for m in mappings]
+
+            fixed = ReadySale.objects.filter(diler__in=dilers).update(
+                region=Case(*whens, output_field=CharField())
+            )
 
         return Response({
             'fixed': fixed,
