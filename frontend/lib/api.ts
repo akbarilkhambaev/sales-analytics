@@ -93,6 +93,32 @@ class ApiClient {
     return response.json();
   }
 
+  private async parseJsonOrText<T>(response: Response): Promise<T> {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+
+    const text = await response.text();
+    throw new Error(text.slice(0, 300) || `HTTP ${response.status} ${response.statusText}`);
+  }
+
+  private async throwApiError(response: Response, fallbackMessage: string): Promise<never> {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const data = await response.json();
+      throw new Error(data.error || data.detail || fallbackMessage);
+    }
+
+    const text = await response.text();
+    const cleaned = text.includes('<!doctype') || text.includes('<html')
+      ? `HTTP ${response.status} ${response.statusText}`
+      : text.slice(0, 300);
+    throw new Error(cleaned || fallbackMessage);
+  }
+
   async getWarehouses(): Promise<string[]> {
     return this.fetch<string[]>('/sales/warehouses/');
   }
@@ -1043,9 +1069,8 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(data),
     });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error || 'Ошибка обновления');
-    return json;
+    if (!response.ok) return this.throwApiError(response, 'Ошибка обновления');
+    return this.parseJsonOrText<SchetaMappingItem>(response);
   }
 
   async applySchetaMapping(): Promise<{ total: number; fixed: number; skipped: number; message: string }> {
@@ -1054,9 +1079,8 @@ class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error || 'Ошибка применения');
-    return json;
+    if (!response.ok) return this.throwApiError(response, 'Ошибка применения');
+    return this.parseJsonOrText<{ total: number; fixed: number; skipped: number; message: string }>(response);
   }
 
   async syncSchetaMapping(): Promise<{ added: number; message: string }> {
@@ -1065,9 +1089,8 @@ class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error || 'Ошибка синхронизации');
-    return json;
+    if (!response.ok) return this.throwApiError(response, 'Ошибка синхронизации');
+    return this.parseJsonOrText<{ added: number; message: string }>(response);
   }
 
   getDilerMapping(params?: { search?: string; mapped?: 'true' | 'false'; page?: number; per_page?: number }): Promise<{
@@ -1090,9 +1113,8 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(data),
     });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error || 'Ошибка обновления');
-    return json;
+    if (!response.ok) return this.throwApiError(response, 'Ошибка обновления');
+    return this.parseJsonOrText<DilerMappingItem>(response);
   }
 
   async applyDilerMapping(): Promise<{ fixed: number; message: string }> {
@@ -1101,9 +1123,8 @@ class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error || 'Ошибка применения');
-    return json;
+    if (!response.ok) return this.throwApiError(response, 'Ошибка применения');
+    return this.parseJsonOrText<{ fixed: number; message: string }>(response);
   }
 
   async syncDilerMapping(): Promise<{ added: number; updated?: number; message: string }> {
@@ -1112,9 +1133,8 @@ class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error || 'Ошибка синхронизации');
-    return json;
+    if (!response.ok) return this.throwApiError(response, 'Ошибка синхронизации');
+    return this.parseJsonOrText<{ added: number; updated?: number; message: string }>(response);
   }
 
   // ─── УПРАВЛЕНИЕ ДАННЫМИ ──────────────────────────────────────────────────────
