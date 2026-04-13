@@ -214,7 +214,7 @@ class ApiClient {
   }
 
   getRegionMap(params: { year?: number; month?: number; gruppa?: string; kod?: string }): Promise<{
-    regions: { name: string; volume: number; pct: number; rank: number }[];
+    regions: { name: string; volume: number; pct: number; rank: number; plan: number }[];
     warehouses: { name: string; volume: number; regions: { name: string; volume: number }[] }[];
     total: number;
     period: string;

@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import Sale
+from .models import Sale, SalesPlan
 from .utils import safe_kol_vo_sum
 
 
@@ -228,15 +228,30 @@ class RegionMapView(APIView):
             .order_by('-volume')
         )
 
+        # --- План по регионам ---
+        plan_qs = SalesPlan.objects.filter(year=year).exclude(region='').exclude(region__isnull=True)
+        if month:
+            plan_qs = plan_qs.filter(month=month)
+        if gruppa:
+            plan_qs = plan_qs.filter(gruppa_tovara=gruppa)
+        if kod:
+            plan_qs = plan_qs.filter(kod_tovara=kod)
+
+        from django.db.models import Sum as DjSum
+        plan_rows = plan_qs.values('region').annotate(plan=DjSum('plan_kg'))
+        plan_map = {r['region']: float(r['plan'] or 0) for r in plan_rows}
+
         total = sum(float(r['volume'] or 0) for r in region_rows)
         regions = []
         for rank, row in enumerate(region_rows, 1):
             vol = float(row['volume'] or 0)
+            reg = row['region']
             regions.append({
-                'name':   row['region'],
+                'name':   reg,
                 'volume': round(vol, 2),
                 'pct':    round(vol / total * 100, 1) if total else 0,
                 'rank':   rank,
+                'plan':   round(plan_map.get(reg, 0), 2),
             })
 
         # --- Продажи по складам с разбивкой по регионам ---

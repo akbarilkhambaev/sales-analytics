@@ -10,7 +10,7 @@ import {
 import { MapPin, TrendingUp, ChevronLeft, ChevronRight, BarChart3, DollarSign, Zap } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface RegionData  { name: string; volume: number; pct: number; rank: number }
+interface RegionData  { name: string; volume: number; pct: number; rank: number; plan: number }
 interface WhData      { name: string; volume: number; regions: { name: string; volume: number }[] }
 interface MapData     { regions: RegionData[]; warehouses: WhData[]; total: number; period: string }
 interface Tooltip     { x: number; y: number; name: string; rd: RegionData }
@@ -463,6 +463,15 @@ export default function MapPage() {
                 {fmt(tooltip.rd.volume)}
                 <span className="text-sm text-blue-400 ml-1">кг</span>
               </p>
+              {tooltip.rd.plan > 0 && (
+                <p className="text-emerald-400 text-sm font-semibold leading-tight">
+                  План: {fmt(tooltip.rd.plan)}
+                  <span className="text-xs text-emerald-500 ml-1">кг</span>
+                  <span className="text-xs text-gray-400 ml-2">
+                    ({tooltip.rd.plan > 0 ? Math.round(tooltip.rd.volume / tooltip.rd.plan * 100) : 0}%)
+                  </span>
+                </p>
+              )}
               <p className="text-gray-400 text-xs">
                 #{tooltip.rd.rank} место · {tooltip.rd.pct}% от итого
               </p>
