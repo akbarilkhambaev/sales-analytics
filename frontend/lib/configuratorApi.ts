@@ -14,7 +14,7 @@ import type {
   MaterialRates,
 } from '@/app/configurator/types';
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api') + '/configurator';
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? '/api') + '/configurator';
 
 // ─── Raw API shapes (what Django actually returns) ────────────────────────────
 

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 interface User {
   id: number;
@@ -54,6 +54,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+      // Пытаемся blacklist токен на сервере
+      if (refreshToken && accessToken) {
+        await fetch(`${API_BASE}/auth/users/logout/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Очищаем состояние и localStorage
+      setUser(null);
+      setAccessToken(null);
+      setRefreshToken(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('isAuthenticated');
+    }
+  }, [accessToken, refreshToken]);
+
   // Обновление access token
   const refreshAccessToken = useCallback(async () => {
     if (!refreshToken) {
@@ -89,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await logout();
       throw error;
     }
-  }, [refreshToken]);
+  }, [logout, refreshToken]);
 
   // Автоматическое обновление токена перед истечением (каждые 50 минут)
   useEffect(() => {
@@ -133,33 +160,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      // Пытаемся blacklist токен на сервере
-      if (refreshToken && accessToken) {
-        await fetch(`${API_BASE}/auth/users/logout/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ refresh: refreshToken }),
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Очищаем состояние и localStorage
-      setUser(null);
-      setAccessToken(null);
-      setRefreshToken(null);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('isAuthenticated'); // Удаляем старый флаг
     }
   };
 
