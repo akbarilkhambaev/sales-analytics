@@ -64,7 +64,8 @@ class ApiClient {
   }
 
   private async fetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${endpoint}`);
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const url = new URL(`${this.baseUrl}${endpoint}`, base);
     
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -287,7 +288,8 @@ class ApiClient {
     if (filters?.currency) params.currency = filters.currency;
     if (filters?.search) params.search = filters.search;
     
-    const url = new URL(`${this.baseUrl}/expenses/`);
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const url = new URL(`${this.baseUrl}/expenses/`, base);
     Object.entries(params).forEach(([key, value]) => {
       if (value) url.searchParams.append(key, value);
     });
