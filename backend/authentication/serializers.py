@@ -15,8 +15,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @staticmethod
     def _get_or_create_profile(user):
-        profile = getattr(user, 'profile', None)
-        if profile is None:
+        try:
+            profile = user.profile
+        except UserProfile.DoesNotExist:
             profile, _ = UserProfile.objects.get_or_create(user=user)
         return profile
     
