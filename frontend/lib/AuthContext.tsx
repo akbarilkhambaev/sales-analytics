@@ -54,6 +54,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const readErrorMessage = useCallback(async (response: Response, fallbackMessage: string) => {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const error = await response.json();
+      return error.detail || error.error || fallbackMessage;
+    }
+
+    const text = await response.text();
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      return `HTTP ${response.status} ${response.statusText}`;
+    }
+
+    return text || fallbackMessage;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       // Пытаемся blacklist токен на сервере
@@ -97,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to refresh token');
+        throw new Error(await readErrorMessage(response, 'Failed to refresh token'));
       }
 
       const data = await response.json();
@@ -116,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await logout();
       throw error;
     }
-  }, [logout, refreshToken]);
+  }, [logout, readErrorMessage, refreshToken]);
 
   // Автоматическое обновление токена перед истечением (каждые 50 минут)
   useEffect(() => {
@@ -141,8 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Ошибка входа');
+        throw new Error(await readErrorMessage(response, 'Ошибка входа'));
       }
 
       const data = await response.json();
