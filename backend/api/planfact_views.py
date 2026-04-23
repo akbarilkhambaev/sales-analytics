@@ -153,17 +153,17 @@ class PlanFactViewSet(viewsets.ViewSet):
 
         # ── 2. SELLOUT из `ready_sales` (data — DateField) ──────────────────
         base_sellout = (
-            ReadySale.objects.filter(tovary__isnull=False).exclude(tovary='')
+            ReadySale.objects.filter(kod_tovara__isnull=False).exclude(kod_tovara='')
         )
 
         def _sellout_sum(from_d: date, to_d: date) -> dict[str, float]:
             rows = (
                 base_sellout
                 .filter(data__gte=from_d, data__lte=to_d)
-                .values('tovary')
+                .values('kod_tovara')
                 .annotate(total=Sum('ves_kg'))
             )
-            return {r['tovary']: float(r['total'] or 0) for r in rows}
+            return {r['kod_tovara']: float(r['total'] or 0) for r in rows}
 
         sellout_prev = _sellout_sum(sop_from, sop_to)
         sellout_curr = _sellout_sum(soc_from, soc_to)
@@ -243,16 +243,18 @@ class PlanFactViewSet(viewsets.ViewSet):
             pp  = plan_period.get(kod, 0)
             pm  = plan_monthly.get(kod, 0)
             rows_out.append({
-                'product':        kod,
-                'gruppa_tovara':  kod_to_group.get(kod, ''),
-                'sales_prev':     round(sp, 2),
-                'sales_curr':     round(sc, 2),
-                'diff_pct_sales': _safe_pct(sc, sp),
-                'diff_pct_plan':  _safe_pct(soc, pp) if pp else None,
-                'plan_period':    round(pp, 2),
-                'plan_monthly':   round(pm, 2),
-                'sellout_prev':   round(sop, 2),
-                'sellout_curr':   round(soc, 2),
+                'product':              kod,
+                'gruppa_tovara':        kod_to_group.get(kod, ''),
+                'sales_prev':           round(sp, 2),
+                'sales_curr':           round(sc, 2),
+                'diff_pct_sales':       _safe_pct(sc, sp),
+                'diff_pct_plan':        _safe_pct(sc, pp) if pp else None,
+                'plan_period':          round(pp, 2),
+                'plan_monthly':         round(pm, 2),
+                'sellout_prev':         round(sop, 2),
+                'diff_pct_sellout_prev': _safe_pct(sop, sp) if sp else None,
+                'sellout_curr':         round(soc, 2),
+                'diff_pct_sellout_curr': _safe_pct(soc, sc) if sc else None,
             })
 
         def _s(key: str, subset=None) -> float:
@@ -277,30 +279,36 @@ class PlanFactViewSet(viewsets.ViewSet):
             pp_g  = _s('plan_period', grp_rows)
             pm_g  = _s('plan_monthly', grp_rows)
             group_totals[g] = {
-                'product':        f'ИТОГО {g}',
-                'gruppa_tovara':  g,
-                'sales_prev':     sp_g,
-                'sales_curr':     sc_g,
-                'diff_pct_sales': _safe_pct(sc_g, sp_g),
-                'diff_pct_plan':  _safe_pct(soc_g, pp_g) if pp_g else None,
-                'plan_period':    pp_g,
-                'plan_monthly':   pm_g,
-                'sellout_prev':   sop_g,
-                'sellout_curr':   soc_g,
+                'product':               f'ИТОГО {g}',
+                'gruppa_tovara':         g,
+                'sales_prev':            sp_g,
+                'sales_curr':            sc_g,
+                'diff_pct_sales':        _safe_pct(sc_g, sp_g),
+                'diff_pct_plan':         _safe_pct(sc_g, pp_g) if pp_g else None,
+                'plan_period':           pp_g,
+                'plan_monthly':          pm_g,
+                'sellout_prev':          sop_g,
+                'diff_pct_sellout_prev': _safe_pct(sop_g, sp_g) if sp_g else None,
+                'sellout_curr':          soc_g,
+                'diff_pct_sellout_curr': _safe_pct(soc_g, sc_g) if sc_g else None,
             }
 
         totals = {
-            'product':        'ИТОГО',
-            'gruppa_tovara':  '',
-            'sales_prev':     _s('sales_prev'),
-            'sales_curr':     _s('sales_curr'),
-            'diff_pct_sales': _safe_pct(_s('sales_curr'), _s('sales_prev')),
-            'diff_pct_plan':  _safe_pct(_s('sellout_curr'), _s('plan_period'))
-                              if _s('plan_period') else None,
-            'plan_period':    _s('plan_period'),
-            'plan_monthly':   _s('plan_monthly'),
-            'sellout_prev':   _s('sellout_prev'),
-            'sellout_curr':   _s('sellout_curr'),
+            'product':               'ИТОГО',
+            'gruppa_tovara':         '',
+            'sales_prev':            _s('sales_prev'),
+            'sales_curr':            _s('sales_curr'),
+            'diff_pct_sales':        _safe_pct(_s('sales_curr'), _s('sales_prev')),
+            'diff_pct_plan':         _safe_pct(_s('sales_curr'), _s('plan_period'))
+                                     if _s('plan_period') else None,
+            'plan_period':           _s('plan_period'),
+            'plan_monthly':          _s('plan_monthly'),
+            'sellout_prev':          _s('sellout_prev'),
+            'diff_pct_sellout_prev': _safe_pct(_s('sellout_prev'), _s('sales_prev'))
+                                     if _s('sales_prev') else None,
+            'sellout_curr':          _s('sellout_curr'),
+            'diff_pct_sellout_curr': _safe_pct(_s('sellout_curr'), _s('sales_curr'))
+                                     if _s('sales_curr') else None,
         }
 
         result = {

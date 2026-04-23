@@ -63,6 +63,46 @@ class ApiClient {
     return headers;
   }
 
+  // Попытка обновить access token через refresh token.
+  // Возвращает новый access token или null при неудаче.
+  private async tryRefreshToken(): Promise<string | null> {
+    if (typeof window === 'undefined') return null;
+    const refresh = localStorage.getItem('refresh_token');
+    if (!refresh) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/auth/token/refresh/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.access) return null;
+      localStorage.setItem('access_token', data.access);
+      if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+      return data.access;
+    } catch {
+      return null;
+    }
+  }
+
+  // При 401: пробуем обновить токен и повторить запрос.
+  // Если не получается — редиректим на /login.
+  private async handle401AndRetry(makeRequest: (token: string) => Promise<Response>): Promise<Response> {
+    const newToken = await this.tryRefreshToken();
+    if (newToken) {
+      return makeRequest(newToken);
+    }
+    // Очищаем сессию и редиректим
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    throw new Error('Сессия истекла. Войдите снова.');
+  }
+
   private async fetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
     const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
     const url = new URL(`${this.baseUrl}${endpoint}`, base);
@@ -565,11 +605,18 @@ class ApiClient {
   }
 
   async createWorkReport(data: WorkReportFormData): Promise<WorkReport> {
-    const response = await fetch(`${this.baseUrl}/work-reports/`, {
+    const makeRequest = (token: string) => fetch(`${this.baseUrl}/work-reports/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data),
     });
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    let response = await makeRequest(token || '');
+
+    if (response.status === 401) {
+      response = await this.handle401AndRetry(makeRequest);
+    }
 
     if (!response.ok) {
       const error = await response.json();
@@ -580,11 +627,18 @@ class ApiClient {
   }
 
   async updateWorkReport(id: number, data: WorkReportFormData): Promise<WorkReport> {
-    const response = await fetch(`${this.baseUrl}/work-reports/${id}/`, {
+    const makeRequest = (token: string) => fetch(`${this.baseUrl}/work-reports/${id}/`, {
       method: 'PATCH',
-      headers: this.getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data),
     });
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    let response = await makeRequest(token || '');
+
+    if (response.status === 401) {
+      response = await this.handle401AndRetry(makeRequest);
+    }
 
     if (!response.ok) {
       const error = await response.json();

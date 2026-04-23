@@ -148,9 +148,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
     def get_attachment_url(self, obj):
         """Получить URL прикреплённого файла"""
         if obj.attachment:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.attachment.url)
             return obj.attachment.url
         return None
     
@@ -191,9 +188,6 @@ class WorkReportPhotoSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj):
         """Получить URL изображения"""
         if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
 
@@ -314,16 +308,12 @@ class ProductCatalogSerializer(serializers.ModelSerializer):
     
     def get_pdf_file_url(self, obj):
         if obj.pdf_file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.pdf_file.url)
+            return obj.pdf_file.url
         return None
     
     def get_preview_image_url(self, obj):
         if obj.preview_image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.preview_image.url)
+            return obj.preview_image.url
         return None
     
     def create(self, validated_data):
@@ -379,9 +369,7 @@ class ClientCardSerializer(serializers.ModelSerializer):
     
     def get_photo_url(self, obj):
         if obj.photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
         return None
     
     def create(self, validated_data):
@@ -414,9 +402,7 @@ class VisitReportPhotoSerializer(serializers.ModelSerializer):
     
     def get_photo_url(self, obj):
         if obj.photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
         return None
 
 

@@ -520,7 +520,9 @@ export interface PlanFactRow {
   plan_period: number;
   plan_monthly: number;
   sellout_prev: number;
+  diff_pct_sellout_prev: number | null;
   sellout_curr: number;
+  diff_pct_sellout_curr: number | null;
 }
 
 export interface PlanFactLabels {

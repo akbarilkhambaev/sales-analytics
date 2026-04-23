@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -15,11 +15,55 @@ import {
   Snowflake,
   Flame,
   Search,
-  Eye
+  Eye,
+  CheckCircle,
+  AlertCircle,
+  Upload
 } from 'lucide-react';
-import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import type { ProductCatalog, ProductCatalogFormData, CatalogType } from '@/lib/types';
+
+interface Toast {
+  id: number;
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
+
+function uploadWithProgress(
+  url: string,
+  formData: FormData,
+  token: string | null,
+  onProgress: (percent: number) => void
+): Promise<ProductCatalog> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText));
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText);
+          reject(new Error(err.detail || err.error || `Ошибка ${xhr.status}`));
+        } catch {
+          reject(new Error(`Ошибка ${xhr.status}`));
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Ошибка сети')));
+    xhr.addEventListener('abort', () => reject(new Error('Загрузка отменена')));
+    xhr.send(formData);
+  });
+}
 
 export default function CatalogsPage() {
   const router = useRouter();
@@ -30,6 +74,8 @@ export default function CatalogsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingCatalog, setEditingCatalog] = useState<ProductCatalog | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   
   const [formData, setFormData] = useState<ProductCatalogFormData>({
     title: '',
@@ -38,6 +84,12 @@ export default function CatalogsPage() {
     pdf_file: null,
     preview_image: null,
   });
+
+  const addToast = useCallback((type: Toast['type'], message: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  }, []);
 
   const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
@@ -55,6 +107,7 @@ export default function CatalogsPage() {
   const loadCatalogs = async () => {
     try {
       setLoading(true);
+      const { apiClient } = await import('@/lib/api');
       const data = await apiClient.getCatalogs();
       setCatalogs(data);
     } catch (error) {
@@ -64,23 +117,55 @@ export default function CatalogsPage() {
     }
   };
 
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       if (editingCatalog) {
-        await apiClient.updateCatalog(editingCatalog.id, formData);
-        alert('Каталог успешно обновлён!');
+        // Обновление — без прогресса (файл не обязателен)
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const fd = new FormData();
+        fd.append('title', formData.title);
+        fd.append('catalog_type', formData.catalog_type);
+        fd.append('description', formData.description);
+        if (formData.pdf_file) fd.append('pdf_file', formData.pdf_file);
+        if (formData.preview_image) fd.append('preview_image', formData.preview_image);
+
+        setUploadProgress(0);
+        await uploadWithProgress(
+          `${baseUrl}/catalogs/${editingCatalog.id}/`,
+          fd,
+          token,
+          setUploadProgress
+        ).catch(async () => {
+          // PATCH fallback через apiClient если PUT не подходит
+          const { apiClient } = await import('@/lib/api');
+          return apiClient.updateCatalog(editingCatalog.id, formData);
+        });
+        addToast('success', 'Каталог успешно обновлён!');
       } else {
-        await apiClient.createCatalog(formData);
-        alert('Каталог успешно создан!');
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const fd = new FormData();
+        fd.append('title', formData.title);
+        fd.append('catalog_type', formData.catalog_type);
+        fd.append('description', formData.description);
+        if (formData.pdf_file) fd.append('pdf_file', formData.pdf_file);
+        if (formData.preview_image) fd.append('preview_image', formData.preview_image);
+
+        setUploadProgress(0);
+        await uploadWithProgress(`${baseUrl}/catalogs/`, fd, token, setUploadProgress);
+        addToast('success', 'Каталог успешно создан!');
       }
       
-      loadCatalogs();
+      await loadCatalogs();
       handleCloseModal();
     } catch (error) {
       console.error('Error saving catalog:', error);
-      alert('Ошибка при сохранении каталога');
+      addToast('error', error instanceof Error ? error.message : 'Ошибка при сохранении каталога');
+    } finally {
+      setUploadProgress(null);
     }
   };
 
@@ -90,11 +175,13 @@ export default function CatalogsPage() {
     }
 
     try {
+      const { apiClient } = await import('@/lib/api');
       await apiClient.deleteCatalog(id);
+      addToast('success', 'Каталог удалён');
       loadCatalogs();
     } catch (error) {
       console.error('Error deleting catalog:', error);
-      alert('Ошибка при удалении каталога');
+      addToast('error', 'Ошибка при удалении каталога');
     }
   };
 
@@ -155,6 +242,23 @@ export default function CatalogsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+      {/* Toast notifications */}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium animate-in slide-in-from-right pointer-events-auto min-w-[280px] ${
+              toast.type === 'success' ? 'bg-green-600' :
+              toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+            }`}
+          >
+            {toast.type === 'success' && <CheckCircle className="w-5 h-5 shrink-0" />}
+            {toast.type === 'error' && <AlertCircle className="w-5 h-5 shrink-0" />}
+            {toast.type === 'info' && <Upload className="w-5 h-5 shrink-0" />}
+            <span>{toast.message}</span>
+          </div>
+        ))}
+      </div>
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-blue-700 text-white">
         <div className="container mx-auto px-4 py-6">
@@ -409,17 +513,40 @@ export default function CatalogsPage() {
                   )}
                 </div>
 
+                {/* Upload progress bar */}
+                {uploadProgress !== null && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span className="flex items-center gap-1">
+                        <Upload className="w-4 h-4 animate-pulse" />
+                        {uploadProgress < 100 ? 'Загрузка файла...' : 'Обработка...'}
+                      </span>
+                      <span className="font-semibold">{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-green-500 h-3 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
+                    disabled={uploadProgress !== null}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {editingCatalog ? 'Обновить' : 'Создать'}
+                    {uploadProgress !== null
+                      ? `Загрузка ${uploadProgress}%...`
+                      : editingCatalog ? 'Обновить' : 'Создать'}
                   </button>
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition font-semibold"
+                    disabled={uploadProgress !== null}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Отмена
                   </button>

@@ -146,7 +146,9 @@ export default function PlanFactPage() {
         <td className="px-3 py-2 text-sm text-right tabular-nums text-blue-300">{fmt(row.plan_period)}</td>
         <td className="px-3 py-2 text-sm text-right tabular-nums text-blue-200">{fmt(row.plan_monthly)}</td>
         <td className="px-3 py-2 text-sm text-right tabular-nums text-orange-300">{fmt(row.sellout_prev)}</td>
+        <td className={`px-3 py-2 text-sm text-center ${type === 'normal' ? pctClass(row.diff_pct_sellout_prev) : ''}`}>{fmtPct(row.diff_pct_sellout_prev)}</td>
         <td className="px-3 py-2 text-sm text-right tabular-nums text-orange-200">{fmt(row.sellout_curr)}</td>
+        <td className={`px-3 py-2 text-sm text-center ${type === 'normal' ? pctClass(row.diff_pct_sellout_curr) : ''}`}>{fmtPct(row.diff_pct_sellout_curr)}</td>
       </tr>
     );
   };
@@ -166,7 +168,7 @@ export default function PlanFactPage() {
       // Заголовок группы
       result.push(
         <tr key={`header-${g}`} className="bg-gray-700 text-white">
-          <td colSpan={9} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
+          <td colSpan={11} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
             {g}
           </td>
         </tr>
@@ -288,33 +290,35 @@ export default function PlanFactPage() {
               <table className="w-full text-sm min-w-[1000px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-800 text-white text-xs tracking-wide">
-                    <th className="px-3 py-3 text-left min-w-[140px]">{'\u041f\u0440\u043e\u0434\u0443\u043a\u0446\u0438\u044f'}</th>
+                    <th className="px-3 py-3 text-left min-w-[140px]">{'Продукция'}</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">
-                      {'\u041f\u0440\u043e\u0434\u0430\u0436\u0438'}<br/>
+                      {'Продажи'}<br/>
                       <span className="font-normal opacity-75">{data.labels.sales_prev}</span>
                     </th>
-                    <th className="px-3 py-3 text-center">&Delta;%</th>
+                    <th className="px-3 py-3 text-center whitespace-nowrap">&Delta;%<br/><span className="font-normal opacity-75">год/год</span></th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">
-                      {'\u041f\u0440\u043e\u0434\u0430\u0436\u0438'}<br/>
+                      {'Продажи'}<br/>
                       <span className="font-normal opacity-75">{data.labels.sales_curr}</span>
                     </th>
-                    <th className="px-3 py-3 text-center whitespace-nowrap">% {'\u043a \u043f\u043b\u0430\u043d\u0443'}</th>
+                    <th className="px-3 py-3 text-center whitespace-nowrap">% к плану</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap text-blue-300">
-                      {'\u041f\u041b\u0410\u041d (\u043f\u0435\u0440.)'}<br/>
+                      {'ПЛАН (пер.)'}<br/>
                       <span className="font-normal opacity-75">{data.labels.plan}</span>
                     </th>
                     <th className="px-3 py-3 text-right whitespace-nowrap text-blue-200">
-                      {'\u041f\u041b\u0410\u041d (\u043c\u0435\u0441.)'}<br/>
+                      {'ПЛАН (мес.)'}<br/>
                       <span className="font-normal opacity-75">{data.labels.plan_monthly}</span>
                     </th>
                     <th className="px-3 py-3 text-right whitespace-nowrap text-orange-300">
                       SELLOUT<br/>
                       <span className="font-normal opacity-75">{data.labels.sellout_prev}</span>
                     </th>
+                    <th className="px-3 py-3 text-center whitespace-nowrap text-orange-300">% к пр.<br/><span className="font-normal opacity-75">{data.labels.sellout_prev}</span></th>
                     <th className="px-3 py-3 text-right whitespace-nowrap text-orange-200">
                       SELLOUT<br/>
                       <span className="font-normal opacity-75">{data.labels.sellout_curr}</span>
                     </th>
+                    <th className="px-3 py-3 text-center whitespace-nowrap text-orange-200">% к пр.<br/><span className="font-normal opacity-75">{data.labels.sellout_curr}</span></th>
                   </tr>
                 </thead>
                 <tbody>

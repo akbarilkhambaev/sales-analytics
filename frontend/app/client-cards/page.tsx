@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -45,8 +45,26 @@ export default function ClientCardsPage() {
   });
 
   const [partnerInput, setPartnerInput] = useState('');
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
 
   const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
+  // Close client dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setShowClientDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredClientsInModal = clients
+    .filter(c => c.toLowerCase().includes(clientSearchQuery.toLowerCase()))
+    .slice(0, 50);
 
   useEffect(() => {
     if (authLoading) return;
@@ -83,6 +101,11 @@ export default function ClientCardsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.client_name) {
+      alert('Выберите клиента из списка');
+      return;
+    }
 
     try {
       await apiClient.createClientCard(formData);
@@ -126,6 +149,8 @@ export default function ClientCardsPage() {
       photo: null,
     });
     setPartnerInput('');
+    setClientSearchQuery('');
+    setShowClientDropdown(false);
   };
 
   const addPartner = () => {
@@ -366,22 +391,68 @@ export default function ClientCardsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Клиентское название *
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Search className="w-4 h-4" /> Клиентское название *
                 </label>
-                <select
-                  required
-                  value={formData.client_name}
-                  onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">Выберите клиента</option>
-                  {clients.map((client) => (
-                    <option key={client} value={client}>
-                      {client}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={clientDropdownRef}>
+                  <input
+                    type="text"
+                    required={!formData.client_name}
+                    value={clientSearchQuery}
+                    onChange={(e) => {
+                      setClientSearchQuery(e.target.value);
+                      setFormData({ ...formData, client_name: '' });
+                      setShowClientDropdown(true);
+                    }}
+                    onFocus={() => setShowClientDropdown(true)}
+                    placeholder="Введите название для поиска..."
+                    autoComplete="off"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                      formData.client_name ? 'border-green-400 bg-green-50' : 'border-gray-300'
+                    }`}
+                  />
+                  {formData.client_name && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 text-xs font-medium">
+                      ✓ выбран
+                    </div>
+                  )}
+                  {showClientDropdown && clientSearchQuery.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                      {filteredClientsInModal.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">Ничего не найдено</div>
+                      ) : (
+                        <>
+                          {clientSearchQuery && (
+                            <div className="px-3 py-1.5 text-xs text-gray-400 border-b border-gray-100">
+                              Показано {filteredClientsInModal.length} из {clients.filter(c => c.toLowerCase().includes(clientSearchQuery.toLowerCase())).length} совпадений
+                            </div>
+                          )}
+                          {filteredClientsInModal.map((client) => (
+                            <div
+                              key={client}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setFormData({ ...formData, client_name: client });
+                                setClientSearchQuery(client);
+                                setShowClientDropdown(false);
+                              }}
+                              className={`px-4 py-2 cursor-pointer text-sm transition-colors ${
+                                formData.client_name === client
+                                  ? 'bg-indigo-100 text-indigo-800 font-medium'
+                                  : 'hover:bg-indigo-50 text-gray-800'
+                              }`}
+                            >
+                              {client}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {clientSearchQuery && !formData.client_name && (
+                  <p className="text-xs text-amber-600 mt-1">Выберите клиента из списка ниже</p>
+                )}
               </div>
 
               <div>

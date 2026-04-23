@@ -7,7 +7,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/sales-analytics/frontend
 Environment=NODE_ENV=production
-Environment=PORT=3000
+Environment=PORT=3001
 EnvironmentFile=/var/www/sales-analytics/frontend/.env.production
 ExecStart=/usr/bin/node /var/www/sales-analytics/frontend/.next/standalone/server.js
 Restart=always

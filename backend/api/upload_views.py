@@ -217,8 +217,10 @@ class ExcelUploadView(APIView):
                                 year = parsed_date.year
                         
                         tovary_val = str(row.get('ТОВАРЫ', '')).strip() if pd.notna(row.get('ТОВАРЫ')) else ''
+                        produkt_val = str(row.get('Продукт', '')).strip() if pd.notna(row.get('Продукт')) else ''
                         kod_val = str(row.get('КОД_ТОВАРА', '')).strip() if pd.notna(row.get('КОД_ТОВАРА')) else ''
-                        m = mapping_cache.get(tovary_val) if tovary_val else None
+                        # Маппинг ищем сначала по полному названию продукта, затем по ТОВАРЫ
+                        m = mapping_cache.get(produkt_val) or (mapping_cache.get(tovary_val) if tovary_val else None)
 
                         resolved_kod = kod_val or (m.kod_tovara if m else None)
                         resolved_gruppa = (str(row.get('Группа_товара', '')).strip() if pd.notna(row.get('Группа_товара')) else '') or (m.gruppa_tovara if m else None)

@@ -112,14 +112,14 @@ export default function LoginPage() {
           </form>
 
           {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          {/* <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <p className="text-xs text-gray-600 mb-1">
               <strong>Тестовые пользователи:</strong>
             </p>
             <p className="text-xs text-gray-500">
               admin/admin (Админ) | manager/manager (Менеджер) | viewer/viewer (Просмотр)
             </p>
-          </div>
+          </div> */}
         </div>
 
         {/* Footer */}

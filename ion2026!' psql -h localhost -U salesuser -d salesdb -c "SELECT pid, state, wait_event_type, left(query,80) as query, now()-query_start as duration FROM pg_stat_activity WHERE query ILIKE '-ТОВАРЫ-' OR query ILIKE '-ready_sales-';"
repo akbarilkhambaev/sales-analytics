@@ -1,0 +1,6 @@
+  pid  | state  | wait_event_type | wait_event |          query_start          |   duration    |                                      query                                       
+-------+--------+-----------------+------------+-------------------------------+---------------+----------------------------------------------------------------------------------
+ 92153 | active |                 |            | 2026-04-15 05:54:20.415512+00 | 00:00:00      | SELECT pid, state, wait_event_type, wait_event, query_start, now() - query_start
+ 91837 | active |                 |            | 2026-04-15 05:39:00.514312+00 | 00:15:19.9012 | UPDATE ready_sales SET "ТОВАРЫ" = "КОД_ТОВАРА" WHERE "КОД_ТОВАРА" IS NOT NULL AN
+(2 rows)
+

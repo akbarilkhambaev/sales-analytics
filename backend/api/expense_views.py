@@ -138,6 +138,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             )
         
         return Response({
-            'url': request.build_absolute_uri(expense.attachment.url),
+            'url': expense.attachment.url,
             'filename': expense.attachment.name.split('/')[-1]
         })
