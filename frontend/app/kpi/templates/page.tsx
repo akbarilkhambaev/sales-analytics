@@ -281,7 +281,7 @@ function TemplateModal({
 export default function KPITemplatesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const [templates, setTemplates] = useState<KPITemplate[]>([]);
   const [loading, setLoading]     = useState(true);

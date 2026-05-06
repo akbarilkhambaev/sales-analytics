@@ -221,6 +221,9 @@ else:
         }
     }
 
+# Telegram Bot integration
+TELEGRAM_BOT_API_TOKEN = os.environ.get('TELEGRAM_BOT_API_TOKEN', '')
+
 # JWT Settings
 from datetime import timedelta
 

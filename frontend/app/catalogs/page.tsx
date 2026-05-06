@@ -91,7 +91,7 @@ export default function CatalogsPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }, []);
 
-  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER';
 
   useEffect(() => {
     if (authLoading) return;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Home, TrendingUp, RefreshCw } from 'lucide-react';
+import FullscreenButton from '@/components/FullscreenButton';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -106,9 +107,12 @@ export default function ABCPage() {
               <p className="text-sm text-violet-200">Классификация по объёму продаж</p>
             </div>
           </div>
-          <Link href="/" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-2 text-sm transition">
-            <Home className="w-4 h-4" /> Главная
-          </Link>
+          <div className="flex items-center gap-2">
+            <FullscreenButton size="sm" />
+            <Link href="/" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-2 text-sm transition">
+              <Home className="w-4 h-4" /> Главная
+            </Link>
+          </div>
         </div>
       </div>
 

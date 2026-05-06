@@ -56,7 +56,7 @@ export default function ClientDetailPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [managers, setManagers] = useState<UserData[]>([]);
 
-  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER';
   const clientId = params?.id ? parseInt(params.id as string) : null;
 
   const loadClient = useCallback(async () => {

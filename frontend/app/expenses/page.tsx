@@ -248,7 +248,7 @@ export default function ExpensesPage() {
     });
   };
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const totalUZS = expenses
     .filter(e => e.currency === 'UZS')

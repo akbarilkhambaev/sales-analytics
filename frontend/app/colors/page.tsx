@@ -11,6 +11,7 @@ import {
   Warehouse,
   Globe
 } from 'lucide-react';
+import FullscreenButton from '@/components/FullscreenButton';
 import { apiClient, formatNumber } from '@/lib/api';
 import { ProductColorsHierarchy, FilterParams, YEARS, MONTHS } from '@/lib/types';
 
@@ -83,12 +84,15 @@ export default function ColorsPage() {
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <Palette className="w-8 h-8" /> Продукты по цветам
               </h1>
-              <Link 
-                href="/" 
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
-              >
-                <Home className="w-5 h-5" /> Главная
-              </Link>
+              <div className="flex items-center gap-2">
+                <FullscreenButton />
+                <Link 
+                  href="/" 
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
+                >
+                  <Home className="w-5 h-5" /> Главная
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -111,12 +115,15 @@ export default function ColorsPage() {
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <Palette className="w-8 h-8" /> Продукты по цветам
               </h1>
-              <Link 
-                href="/" 
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
-              >
-                <Home className="w-5 h-5" /> Главная
-              </Link>
+              <div className="flex items-center gap-2">
+                <FullscreenButton />
+                <Link 
+                  href="/" 
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
+                >
+                  <Home className="w-5 h-5" /> Главная
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -138,12 +145,15 @@ export default function ColorsPage() {
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <Palette className="w-8 h-8" /> Продукты по цветам
             </h1>
-            <Link 
-              href="/" 
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
-            >
-              <Home className="w-5 h-5" /> Главная
-            </Link>
+            <div className="flex items-center gap-2">
+              <FullscreenButton />
+              <Link 
+                href="/" 
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition flex items-center gap-2"
+              >
+                <Home className="w-5 h-5" /> Главная
+              </Link>
+            </div>
           </div>
         </div>
       </div>

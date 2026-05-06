@@ -283,7 +283,22 @@ export interface ExpenseStatistics {
 
 // User Management Types
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'VIEWER';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'VIEWER';
+
+// Telegram integration
+export interface TelegramLinkStatus {
+  linked: boolean;
+  telegram_username?: string;
+  telegram_first_name?: string;
+  telegram_last_name?: string;
+  linked_at?: string;
+  last_seen_at?: string | null;
+}
+
+export interface TelegramLinkCodeResponse {
+  code: string;
+  expires_at: string;
+}
 
 export interface UserData {
   id: number;
@@ -302,7 +317,84 @@ export interface UserData {
     can_upload: boolean;
     can_export: boolean;
     can_use_filters: boolean;
+    is_super_admin: boolean;
   };
+}
+
+export interface UserLoginLog {
+  id: number;
+  user: number;
+  user_username: string;
+  user_full_name: string;
+  user_role: UserRole;
+  user_role_display: string;
+  timestamp: string;
+  ip_address: string | null;
+  user_agent: string | null;
+}
+
+export interface ServerMonitorData {
+  timestamp: string;
+  uptime: string;
+  uptime_seconds: number;
+  cpu: {
+    percent: number;
+    count: number;
+    load_avg_1: number;
+    load_avg_5: number;
+    load_avg_15: number;
+  };
+  memory: {
+    total_mb: number;
+    used_mb: number;
+    available_mb: number;
+    percent: number;
+    swap_total_mb: number;
+    swap_used_mb: number;
+    swap_percent: number;
+  };
+  disk: {
+    total_gb: number;
+    used_gb: number;
+    free_gb: number;
+    percent: number;
+  };
+  network: {
+    bytes_sent_mb: number;
+    bytes_recv_mb: number;
+  };
+  services: {
+    gunicorn: string;
+    nextjs: string;
+    nginx: string;
+  };
+  node_version: string | null;
+  database: {
+    size: string;
+    size_mb: number;
+    connections: number;
+    active_queries: number;
+    version: string;
+    error?: string;
+  };
+  migrations: Array<{ app: string; name: string; applied: string | null }>;
+  slow_queries: {
+    source: string;
+    queries: Array<{
+      query: string;
+      mean_ms?: number;
+      calls?: number;
+      total_ms?: number;
+      state?: string;
+      duration_sec?: number;
+    }>;
+  };
+  frequent_queries: Array<{
+    query: string;
+    calls: number;
+    mean_ms: number;
+    total_ms: number;
+  }>;
 }
 
 export interface CreateUserData {

@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/AuthContext";
 import AppShell from "./components/AppShell";
+import PWARegister from "./components/PWARegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,7 +17,20 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AKFA SALES VISION",
-  description: "Система анализа продаж ",
+  description: "Система анализа продаж AKFA",
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'AKFA Sales',
+  },
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#2563eb',
 };
 
 export default function RootLayout({
@@ -34,6 +48,7 @@ export default function RootLayout({
           <AppShell>
             {children}
           </AppShell>
+          <PWARegister />
         </AuthProvider>
       </body>
     </html>

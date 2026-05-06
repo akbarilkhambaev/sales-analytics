@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   User,
+  Users,
   Home,
   Key,
   Shield,
@@ -15,13 +16,18 @@ import {
   Phone,
   Briefcase,
   Calendar,
-  BarChart3,
-  Wallet,
-  Package
+  FileText,
+  ClipboardList,
+  Send,
+  Link2,
+  Link2Off,
+  RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
-import type { UserData, CreateUserData, ChangePasswordData, UserRole } from '@/lib/types';
+import type { UserData, CreateUserData, ChangePasswordData, UserRole, TelegramLinkStatus, TelegramLinkCodeResponse, UserLoginLog } from '@/lib/types';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -31,6 +37,24 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  // Login logs
+  const [loginLogs, setLoginLogs] = useState<UserLoginLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [selectedUserLogs, setSelectedUserLogs] = useState<number | null>(null);
+
+  // Active panel
+  const [activePanel, setActivePanel] = useState<null | 'last-login' | 'telegram' | 'security' | 'management'>(null);
+
+  const selectPanel = (panel: 'last-login' | 'telegram' | 'security' | 'management') => {
+    setActivePanel(prev => prev === panel ? null : panel);
+  };
+
+  // Telegram
+  const [telegramStatus, setTelegramStatus] = useState<TelegramLinkStatus | null>(null);
+  const [telegramCode, setTelegramCode] = useState<TelegramLinkCodeResponse | null>(null);
+  const [telegramCodeCopied, setTelegramCodeCopied] = useState(false);
+  const [telegramLoading, setTelegramLoading] = useState(false);
   
   // Password change form
   const [passwordData, setPasswordData] = useState<ChangePasswordData>({
@@ -58,10 +82,67 @@ export default function ProfilePage() {
       return;
     }
 
-    if (user?.role === 'ADMIN') {
+    if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
       loadUsers();
     }
+    loadTelegramStatus();
+    loadLoginLogs();
   }, [isAuthenticated, authLoading, router, user]);
+
+  const loadTelegramStatus = async () => {
+    try {
+      const status = await apiClient.getTelegramLinkStatus();
+      setTelegramStatus(status);
+    } catch {
+      // ignore
+    }
+  };
+
+  const loadLoginLogs = async (userId?: number) => {
+    setLogsLoading(true);
+    try {
+      const data = await apiClient.getLoginLogs(userId);
+      setLoginLogs(data);
+    } catch {
+      // ignore
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const handleGenerateTelegramCode = async () => {
+    setTelegramLoading(true);
+    try {
+      const data = await apiClient.generateTelegramLinkCode();
+      setTelegramCode(data);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Ошибка генерации кода');
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (!telegramCode) return;
+    navigator.clipboard.writeText(telegramCode.code).then(() => {
+      setTelegramCodeCopied(true);
+      setTimeout(() => setTelegramCodeCopied(false), 2000);
+    });
+  };
+
+  const handleUnlinkTelegram = async () => {
+    if (!confirm('Отвязать Telegram-аккаунт?')) return;
+    setTelegramLoading(true);
+    try {
+      await apiClient.unlinkTelegram();
+      setTelegramStatus({ linked: false });
+      setTelegramCode(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Ошибка отвязки');
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -141,6 +222,8 @@ export default function ProfilePage() {
 
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
+      case 'SUPER_ADMIN':
+        return 'bg-purple-100 text-purple-800';
       case 'ADMIN':
         return 'bg-red-100 text-red-800';
       case 'MANAGER':
@@ -152,7 +235,8 @@ export default function ProfilePage() {
     }
   };
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   if (authLoading || !user) {
     return (
@@ -235,107 +319,270 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-
-            {/* Change Password Card */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Key className="w-5 h-5" /> Безопасность
-              </h3>
-              
-              {!showChangePassword ? (
-                <button
-                  onClick={() => setShowChangePassword(true)}
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                >
-                  Сменить пароль
-                </button>
-              ) : (
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Текущий пароль
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordData.old_password}
-                      onChange={(e) => setPasswordData({ ...passwordData, old_password: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Новый пароль
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordData.new_password}
-                      onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      minLength={8}
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Минимум 8 символов</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                    >
-                      Сохранить
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowChangePassword(false);
-                        setPasswordData({ old_password: '', new_password: '' });
-                      }}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
           </div>
 
-          {/* Right Column - Quick Links & Admin Panel */}
+          {/* Right Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Quick Access Links */}
+            {/* Quick Access Panel */}
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Быстрый доступ</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <Link
-                  href="/dashboard"
-                  className="flex flex-col items-center justify-center p-4 bg-cyan-50 hover:bg-cyan-100 rounded-lg transition border border-cyan-200"
+                  href="/work-reports"
+                  className="flex flex-col items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition border border-purple-200"
                 >
-                  <BarChart3 className="w-8 h-8 text-cyan-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900">Дашборд</span>
+                  <FileText className="w-8 h-8 text-purple-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Выполненные работы</span>
                 </Link>
 
-                <Link
-                  href="/expenses"
-                  className="flex flex-col items-center justify-center p-4 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition border border-emerald-200"
-                >
-                  <Wallet className="w-8 h-8 text-emerald-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900">Расходы</span>
-                </Link>
+                {isAdmin ? (
+                  <button
+                    onClick={() => selectPanel('management')}
+                    className={`flex flex-col items-center justify-center p-4 rounded-lg transition border ${
+                      activePanel === 'management' ? 'bg-emerald-100 border-emerald-500 ring-2 ring-emerald-300' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                    }`}
+                  >
+                    <Users className="w-8 h-8 text-emerald-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Управление</span>
+                    <span className="text-xs text-gray-400 mt-1">Пользователи</span>
+                  </button>
+                ) : (
+                  <Link
+                    href="/tasks"
+                    className="flex flex-col items-center justify-center p-4 bg-violet-50 hover:bg-violet-100 rounded-lg transition border border-violet-200"
+                  >
+                    <ClipboardList className="w-8 h-8 text-violet-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Доска задач</span>
+                  </Link>
+                )}
 
-                <Link
-                  href="/products"
-                  className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition border border-blue-200"
+                {isAdmin && (
+                  <Link
+                    href="/tasks"
+                    className="flex flex-col items-center justify-center p-4 bg-violet-50 hover:bg-violet-100 rounded-lg transition border border-violet-200"
+                  >
+                    <ClipboardList className="w-8 h-8 text-violet-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Доска задач</span>
+                  </Link>
+                )}
+
+                {/* Last Login tile */}
+                <button
+                  onClick={() => selectPanel('last-login')}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg transition border ${
+                    activePanel === 'last-login' ? 'bg-indigo-100 border-indigo-500 ring-2 ring-indigo-300' : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200'
+                  }`}
                 >
-                  <Package className="w-8 h-8 text-blue-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900">Продукты</span>
-                </Link>
+                  <Calendar className="w-8 h-8 text-indigo-500 mb-2" />
+                  <span className="text-xs font-medium text-gray-500 mb-1">Последний вход</span>
+                  <span className="text-xs text-gray-800 text-center font-semibold">
+                    {user.last_login
+                      ? new Date(user.last_login).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—'}
+                  </span>
+                </button>
+
+                {/* Telegram tile */}
+                <button
+                  onClick={() => selectPanel('telegram')}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg transition border ${
+                    activePanel === 'telegram' ? 'bg-sky-100 border-sky-500 ring-2 ring-sky-300' : 'bg-sky-50 hover:bg-sky-100 border-sky-200'
+                  }`}
+                >
+                  <Send className="w-8 h-8 text-sky-500 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Telegram</span>
+                  <span className="text-xs mt-1 font-medium">
+                    {telegramStatus?.linked
+                      ? <span className="text-green-600">Привязан</span>
+                      : <span className="text-gray-400">Не привязан</span>}
+                  </span>
+                </button>
+
+                {/* Security tile */}
+                <button
+                  onClick={() => selectPanel('security')}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg transition border ${
+                    activePanel === 'security' ? 'bg-orange-100 border-orange-500 ring-2 ring-orange-300' : 'bg-orange-50 hover:bg-orange-100 border-orange-200'
+                  }`}
+                >
+                  <Key className="w-8 h-8 text-orange-500 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Безопасность</span>
+                  <span className="text-xs text-gray-400 mt-1">Сменить пароль</span>
+                </button>
               </div>
             </div>
 
-            {/* Admin Panel - Only for Admins */}
-            {isAdmin && (
+            {/* Active Panel Content */}
+            {activePanel === 'security' && (
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Key className="w-5 h-5" /> Безопасность
+                </h3>
+                {!showChangePassword ? (
+                  <button
+                    onClick={() => setShowChangePassword(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  >
+                    Сменить пароль
+                  </button>
+                ) : (
+                  <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Текущий пароль</label>
+                      <input
+                        type="password"
+                        value={passwordData.old_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, old_password: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Новый пароль</label>
+                      <input
+                        type="password"
+                        value={passwordData.new_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        minLength={8}
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Минимум 8 символов</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="submit" className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Сохранить</button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowChangePassword(false); setPasswordData({ old_password: '', new_password: '' }); }}
+                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                      >Отмена</button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {activePanel === 'telegram' && (
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Send className="w-5 h-5 text-blue-500" /> Telegram
+                </h3>
+                {telegramStatus?.linked ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-green-600 font-medium">
+                      <Link2 className="w-5 h-5" />
+                      <span>Аккаунт привязан</span>
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      {telegramStatus.telegram_first_name && (
+                        <p>Имя: <span className="font-medium">{telegramStatus.telegram_first_name} {telegramStatus.telegram_last_name}</span></p>
+                      )}
+                      {telegramStatus.telegram_username && (
+                        <p>Username: <span className="font-medium">@{telegramStatus.telegram_username}</span></p>
+                      )}
+                      {telegramStatus.linked_at && (
+                        <p>Привязан: <span className="font-medium">{new Date(telegramStatus.linked_at).toLocaleDateString('ru-RU')}</span></p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleUnlinkTelegram}
+                      disabled={telegramLoading}
+                      className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Link2Off className="w-4 h-4" /> Отвязать
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-w-sm">
+                    <p className="text-sm text-gray-600">Привяжите Telegram-аккаунт, чтобы отправлять рабочие отчёты через бота.</p>
+                    {telegramCode ? (
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-500">Код действует до {new Date(telegramCode.expires_at).toLocaleTimeString('ru-RU')}. Отправьте его боту:</p>
+                        <div className="bg-gray-100 rounded-lg p-3 flex items-center justify-between gap-2">
+                          <code className="text-lg font-mono font-bold tracking-widest text-indigo-700">{telegramCode.code}</code>
+                          <button onClick={handleCopyCode} className="text-gray-500 hover:text-gray-700">
+                            {telegramCodeCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500">Найдите бота и отправьте: <code className="bg-gray-100 px-1 rounded">/link {telegramCode.code}</code></p>
+                        <button onClick={handleGenerateTelegramCode} disabled={telegramLoading} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition flex items-center gap-2 text-sm disabled:opacity-50">
+                          <RefreshCw className="w-4 h-4" /> Новый код
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={handleGenerateTelegramCode} disabled={telegramLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50">
+                        <Send className="w-4 h-4" />
+                        {telegramLoading ? 'Генерация...' : 'Получить код привязки'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activePanel === 'last-login' && (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-indigo-600" />
+                    {isSuperAdmin ? 'Логи входов всех пользователей' : 'Мои последние входы'}
+                  </h3>
+                  {isSuperAdmin && (
+                    <select
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-1.5"
+                      value={selectedUserLogs ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : undefined;
+                        setSelectedUserLogs(val ?? null);
+                        loadLoginLogs(val);
+                      }}
+                    >
+                      <option value="">Все пользователи</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>{u.username}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        {isSuperAdmin && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Пользователь</th>}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Время входа</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP адрес</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Браузер</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {logsLoading ? (
+                        <tr><td colSpan={isSuperAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
+                      ) : loginLogs.length === 0 ? (
+                        <tr><td colSpan={isSuperAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-500">Нет данных</td></tr>
+                      ) : loginLogs.slice(0, 50).map((log) => (
+                        <tr key={log.id} className="hover:bg-gray-50">
+                          {isSuperAdmin && (
+                            <td className="px-4 py-3">
+                              <p className="text-sm font-medium text-gray-900">{log.user_username}</p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadgeColor(log.user_role as UserRole)}`}>{log.user_role_display}</span>
+                            </td>
+                          )}
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {new Date(log.timestamp).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 font-mono">{log.ip_address ?? '—'}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={log.user_agent ?? ''}>
+                            {log.user_agent ? log.user_agent.substring(0, 60) + (log.user_agent.length > 60 ? '...' : '') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activePanel === 'management' && isAdmin && (
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -351,185 +598,98 @@ export default function ProfilePage() {
                   )}
                 </div>
 
-                {/* Create User Form */}
                 {showCreateUser && (
                   <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-semibold text-gray-900">Новый пользователь</h4>
-                      <button
-                        onClick={() => setShowCreateUser(false)}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
+                      <button onClick={() => setShowCreateUser(false)} className="text-gray-500 hover:text-gray-700">
                         <X className="w-5 h-5" />
                       </button>
                     </div>
-
                     <form onSubmit={handleCreateUser} className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Логин *
-                        </label>
-                        <input
-                          type="text"
-                          value={newUserData.username}
-                          onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          required
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Логин *</label>
+                        <input type="text" value={newUserData.username} onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" required />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email *
-                        </label>
-                        <input
-                          type="email"
-                          value={newUserData.email}
-                          onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          required
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input type="email" value={newUserData.email} onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" required />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Имя
-                        </label>
-                        <input
-                          type="text"
-                          value={newUserData.first_name}
-                          onChange={(e) => setNewUserData({ ...newUserData, first_name: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
+                        <input type="text" value={newUserData.first_name} onChange={(e) => setNewUserData({ ...newUserData, first_name: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Фамилия
-                        </label>
-                        <input
-                          type="text"
-                          value={newUserData.last_name}
-                          onChange={(e) => setNewUserData({ ...newUserData, last_name: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия</label>
+                        <input type="text" value={newUserData.last_name} onChange={(e) => setNewUserData({ ...newUserData, last_name: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Пароль *
-                        </label>
-                        <input
-                          type="password"
-                          value={newUserData.password}
-                          onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          minLength={8}
-                          required
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Пароль *</label>
+                        <input type="password" value={newUserData.password} onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" minLength={8} required />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Роль *
-                        </label>
-                        <select
-                          value={newUserData.role}
-                          onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value as UserRole })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                        >
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Роль *</label>
+                        <select value={newUserData.role} onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value as UserRole })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                           <option value="VIEWER">Просмотр</option>
                           <option value="MANAGER">Менеджер</option>
                           <option value="ADMIN">Администратор</option>
                         </select>
                       </div>
-
                       <div className="col-span-2">
-                        <button
-                          type="submit"
-                          className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold"
-                        >
-                          Создать пользователя
-                        </button>
+                        <button type="submit" className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold">Создать пользователя</button>
                       </div>
                     </form>
                   </div>
                 )}
 
-                {/* Users List */}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Пользователь
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Email
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Роль
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                          Действия
-                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Пользователь</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Роль</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Последний вход</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {loading ? (
-                        <tr>
-                          <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                            Загрузка...
-                          </td>
-                        </tr>
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
                       ) : users.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                            Нет пользователей
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Нет пользователей</td></tr>
+                      ) : users.map((u) => (
+                        <tr key={u.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="text-sm font-medium text-gray-900">{u.username}</p>
+                            {u.first_name && u.last_name && <p className="text-xs text-gray-500">{u.first_name} {u.last_name}</p>}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
+                          <td className="px-4 py-3">
+                            <select
+                              value={u.role}
+                              onChange={(e) => handleUpdateRole(u.id, e.target.value as UserRole)}
+                              disabled={u.id === user.id || (u.role === 'SUPER_ADMIN' && !isSuperAdmin)}
+                              className={`text-sm rounded-lg px-3 py-1 font-medium border ${getRoleBadgeColor(u.role)} ${u.id === user.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            >
+                              {isSuperAdmin && <option value="SUPER_ADMIN">Главный администратор</option>}
+                              <option value="ADMIN">Администратор</option>
+                              <option value="MANAGER">Менеджер</option>
+                              <option value="VIEWER">Просмотр</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {u.last_login ? new Date(u.last_login).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {u.id !== user.id && !(u.role === 'SUPER_ADMIN' && !isSuperAdmin) && (
+                              <button onClick={() => handleDeleteUser(u.id, u.username)} className="text-red-600 hover:text-red-900" title="Удалить">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </td>
                         </tr>
-                      ) : (
-                        users.map((u) => (
-                          <tr key={u.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{u.username}</p>
-                                {u.first_name && u.last_name && (
-                                  <p className="text-xs text-gray-500">
-                                    {u.first_name} {u.last_name}
-                                  </p>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                            <td className="px-4 py-3">
-                              <select
-                                value={u.role}
-                                onChange={(e) => handleUpdateRole(u.id, e.target.value as UserRole)}
-                                disabled={u.id === user.id}
-                                className={`text-sm rounded-lg px-3 py-1 font-medium border ${getRoleBadgeColor(u.role)} ${
-                                  u.id === user.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                                }`}
-                              >
-                                <option value="ADMIN">Администратор</option>
-                                <option value="MANAGER">Менеджер</option>
-                                <option value="VIEWER">Просмотр</option>
-                              </select>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {u.id !== user.id && (
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.username)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Удалить"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>

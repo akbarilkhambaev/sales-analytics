@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LogOut, User, ShieldCheck, UserCheck } from 'lucide-react';
@@ -16,7 +17,8 @@ export default function Header() {
 
   if (!isAuthenticated || !user) return null;
 
-  const roleIcons = {
+  const roleIcons: Record<string, React.ElementType> = {
+    SUPER_ADMIN: ShieldCheck,
     ADMIN: ShieldCheck,
     MANAGER: UserCheck,
     VIEWER: User,

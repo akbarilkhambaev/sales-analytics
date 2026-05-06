@@ -39,6 +39,7 @@ import type {
   TovaryMappingItem,
   SchetaMappingItem,
   DilerMappingItem,
+  ServerMonitorData,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -566,6 +567,16 @@ class ApiClient {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+  }
+
+  async getLoginLogs(userId?: number): Promise<import('./types').UserLoginLog[]> {
+    const params = userId ? `?user_id=${userId}` : '';
+    const response = await fetch(`${this.baseUrl}/auth/login-logs/${params}`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch login logs');
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data.results ?? []);
   }
 
   async changePassword(passwordData: ChangePasswordData): Promise<void> {
@@ -1211,6 +1222,46 @@ class ApiClient {
       throw new Error(data.error || 'Ошибка запроса');
     }
     return data;
+  }
+  // ─── Telegram ──────────────────────────────────────────────────────────────
+
+  async getTelegramLinkStatus(): Promise<import('./types').TelegramLinkStatus> {
+    return this.fetch('/auth/telegram/status/');
+  }
+
+  async generateTelegramLinkCode(): Promise<import('./types').TelegramLinkCodeResponse> {
+    const response = await fetch(`${this.baseUrl}/auth/telegram/generate-code/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') window.location.href = '/login';
+      throw new Error('Unauthorized');
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Ошибка генерации кода');
+    }
+    return response.json();
+  }
+
+  async unlinkTelegram(): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/auth/telegram/unlink/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Ошибка отвязки');
+    }
+  }
+
+  async getServerMonitor(): Promise<ServerMonitorData> {
+    const response = await fetch(`${this.baseUrl}/monitor/`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Ошибка получения данных мониторинга');
+    return response.json();
   }
 }
 

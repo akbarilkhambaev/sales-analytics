@@ -5,9 +5,23 @@ Custom permissions для проверки ролей пользователей
 from rest_framework import permissions
 
 
+class IsSuperAdmin(permissions.BasePermission):
+    """
+    Доступ только для главного администратора
+    """
+
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            hasattr(request.user, 'profile') and
+            request.user.profile.is_super_admin
+        )
+
+
 class IsAdmin(permissions.BasePermission):
     """
-    Доступ только для администраторов
+    Доступ для администраторов (включая главного)
     """
     
     def has_permission(self, request, view):
@@ -21,7 +35,7 @@ class IsAdmin(permissions.BasePermission):
 
 class IsManagerOrAdmin(permissions.BasePermission):
     """
-    Доступ для менеджеров и администраторов
+    Доступ для менеджеров и администраторов (включая главного)
     """
     
     def has_permission(self, request, view):
@@ -29,7 +43,7 @@ class IsManagerOrAdmin(permissions.BasePermission):
             request.user and
             request.user.is_authenticated and
             hasattr(request.user, 'profile') and
-            request.user.profile.role in ['ADMIN', 'MANAGER']
+            request.user.profile.role in ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
         )
 
 

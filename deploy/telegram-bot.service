@@ -1,0 +1,18 @@
+[Unit]
+Description=Sales Analytics Telegram Bot
+After=network.target sales-gunicorn.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/sales-analytics/telegram-bot
+EnvironmentFile=/var/www/sales-analytics/telegram-bot/.env
+ExecStart=/var/www/sales-analytics/telegram-bot/venv/bin/python bot.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import UserProfile, AuditLog
+from .models import UserProfile, AuditLog, TelegramLink, TelegramLinkCode
 
 
 class UserProfileInline(admin.StackedInline):
@@ -34,17 +34,23 @@ admin.site.register(User, CustomUserAdmin)
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     """Админ панель для логов аудита"""
-    
+
     list_display = ('user', 'action', 'resource', 'timestamp', 'success', 'ip_address')
     list_filter = ('action', 'success', 'timestamp', 'resource')
     search_fields = ('user__username', 'resource', 'details', 'ip_address')
-    ordering = ('-timestamp',)
-    readonly_fields = ('user', 'action', 'resource', 'details', 'ip_address', 'user_agent', 'timestamp', 'success', 'error_message')
-    
-    def has_add_permission(self, request):
-        """Запретить добавление логов через админку"""
-        return False
-    
-    def has_change_permission(self, request, obj=None):
-        """Запретить изменение логов"""
-        return False
+
+
+@admin.register(TelegramLink)
+class TelegramLinkAdmin(admin.ModelAdmin):
+    list_display = ('user', 'telegram_chat_id', 'telegram_username', 'is_active', 'linked_at', 'last_seen_at')
+    list_filter = ('is_active',)
+    search_fields = ('user__username', 'telegram_username', 'telegram_chat_id')
+    readonly_fields = ('linked_at', 'last_seen_at')
+
+
+@admin.register(TelegramLinkCode)
+class TelegramLinkCodeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'code', 'expires_at', 'used_at', 'created_at')
+    list_filter = ('used_at',)
+    search_fields = ('user__username', 'code')
+    readonly_fields = ('created_at',)

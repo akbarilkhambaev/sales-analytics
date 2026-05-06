@@ -258,7 +258,7 @@ function ColumnContainer({
   return (
     <div
       className={`
-        flex flex-col bg-gray-50 rounded-xl border-t-4 border border-gray-200 min-w-[280px] w-[280px]
+        flex flex-col bg-gray-50 rounded-xl border-t-4 border border-gray-200 min-w-[280px] w-[280px] h-full min-h-0
         ${COLUMN_COLORS[column.color] || 'border-t-gray-400'}
       `}
     >
@@ -745,7 +745,7 @@ export default function TasksPage() {
   const doneTasks  = columns.find((c) => c.title === 'Готово')?.tasks.length ?? 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -861,7 +861,7 @@ export default function TasksPage() {
       </div>
 
       {/* Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 min-h-0">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -869,7 +869,7 @@ export default function TasksPage() {
           onDragOver={onDragOver}
           onDragEnd={onDragEnd}
         >
-          <div className="flex gap-5 h-full items-start">
+          <div className="flex gap-5 h-full">
             {columns.map((col) => (
               <ColumnContainer
                 key={col.id}

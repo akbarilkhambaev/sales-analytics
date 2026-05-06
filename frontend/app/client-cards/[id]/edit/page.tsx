@@ -38,7 +38,7 @@ export default function EditClientCardPage() {
 
   const [partnerInput, setPartnerInput] = useState('');
 
-  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER';
   const clientId = params?.id ? parseInt(params.id as string) : null;
 
   useEffect(() => {

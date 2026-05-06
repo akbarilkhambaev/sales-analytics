@@ -62,7 +62,7 @@ const CATEGORY_FILTERS: { id: Category | 'all'; label: string }[] = [
 
 export default function ConfiguratorPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const [step, setStep]               = useState(0);
   const [catFilter, setCatFilter]     = useState<Category | 'all'>('all');

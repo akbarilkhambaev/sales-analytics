@@ -8,17 +8,19 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'VIEWER';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'VIEWER';
   role_display: string;
   first_name: string;
   last_name: string;
   phone?: string;
   department?: string;
   date_joined: string;
+  last_login: string | null;
   permissions: {
     can_upload: boolean;
     can_export: boolean;
     can_use_filters: boolean;
+    is_super_admin: boolean;
   };
 }
 

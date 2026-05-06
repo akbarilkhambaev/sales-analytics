@@ -629,7 +629,7 @@ function NewRecordModal({
 export default function KPIPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER';
 
   const now = new Date();
   const [periodType, setPeriodType]     = useState('month');

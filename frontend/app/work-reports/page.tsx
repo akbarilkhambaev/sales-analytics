@@ -356,12 +356,12 @@ export default function WorkReportsPage() {
   };
 
   const canEdit = (report: WorkReport) => {
-    if (user?.role === 'ADMIN') return true;
+    if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') return true;
     return report.created_by === user?.id;
   };
 
   const canDelete = (report: WorkReport) => {
-    if (user?.role === 'ADMIN') return true;
+    if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') return true;
     return report.created_by === user?.id;
   };
 

@@ -27,6 +27,9 @@ import {
   TrendingUp,
   Settings2,
   MapPin,
+  Swords,
+  Activity,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -83,7 +86,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Управление сектором',
     icon: Briefcase,
     color: 'text-emerald-600',
-    roles: ['ADMIN', 'MANAGER'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
     items: [
       { href: '/expenses',     label: 'Расходы отдела',      icon: Wallet,      color: 'text-emerald-500' },
       { href: '/work-reports', label: 'Выполненные работы',  icon: FileText,    color: 'text-purple-500' },
@@ -92,12 +95,39 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Аналитика (Админ)',
+    icon: Swords,
+    color: 'text-rose-600',
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    items: [
+      { href: '/competitors', label: 'Конкуренты', icon: Swords, color: 'text-rose-500' },
+    ],
+  },
+  {
     title: 'Настройки',
     icon: Database,
     color: 'text-indigo-600',
-    roles: ['ADMIN'],
+    roles: ['SUPER_ADMIN'],
     items: [
       { href: '/admin', label: 'Администрирование', icon: Database, color: 'text-indigo-500' },
+    ],
+  },
+  {
+    title: 'Мониторинг',
+    icon: Activity,
+    color: 'text-green-600',
+    roles: ['SUPER_ADMIN'],
+    items: [
+      { href: '/monitoring', label: 'Мониторинг', icon: Activity, color: 'text-green-500' },
+    ],
+  },
+  {
+    title: 'AI Ассистент',
+    icon: Bot,
+    color: 'text-purple-600',
+    roles: ['SUPER_ADMIN'],
+    items: [
+      { href: '/chat', label: 'AI Чат', icon: Bot, color: 'text-purple-500' },
     ],
   },
 ];

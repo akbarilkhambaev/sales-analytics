@@ -5,7 +5,7 @@ Serializers для аутентификации
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import UserProfile, AuditLog
+from .models import UserProfile, AuditLog, UserLoginLog
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -29,6 +29,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         profile = cls._get_or_create_profile(user)
         token['username'] = user.username
         token['role'] = profile.role
+        token['is_super_admin'] = profile.is_super_admin
         token['email'] = user.email
         
         return token
@@ -44,6 +45,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'email': self.user.email,
             'role': profile.role,
             'role_display': profile.get_role_display(),
+            'is_super_admin': profile.is_super_admin,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
             'permissions': {
@@ -77,11 +79,12 @@ class UserSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         profile = obj.profile if hasattr(obj, 'profile') else None
         if not profile:
-            return {'can_upload': False, 'can_export': False, 'can_use_filters': False}
+            return {'can_upload': False, 'can_export': False, 'can_use_filters': False, 'is_super_admin': False}
         return {
             'can_upload': profile.can_upload,
             'can_export': profile.can_export,
             'can_use_filters': profile.can_use_filters,
+            'is_super_admin': profile.is_super_admin,
         }
     
     def update(self, instance, validated_data):
@@ -167,3 +170,24 @@ class AuditLogSerializer(serializers.ModelSerializer):
             'timestamp', 'success', 'error_message'
         ]
         read_only_fields = fields
+
+
+class UserLoginLogSerializer(serializers.ModelSerializer):
+    """Serializer для логов входа"""
+
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+    user_role = serializers.CharField(source='user.profile.role', read_only=True)
+    user_role_display = serializers.CharField(source='user.profile.get_role_display', read_only=True)
+
+    class Meta:
+        model = UserLoginLog
+        fields = [
+            'id', 'user', 'user_username', 'user_full_name',
+            'user_role', 'user_role_display',
+            'timestamp', 'ip_address', 'user_agent',
+        ]
+        read_only_fields = fields
+
+    def get_user_full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
