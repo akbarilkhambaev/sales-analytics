@@ -1,0 +1,302 @@
+# ТЗ: Мультисекторная система
+
+**Дата:** 07.05.2026  
+**Ветка разработки:** `feature/multi-sector`  
+**Статус:** Планирование
+
+---
+
+## Цель
+
+Разделить все операционные данные (расходы, задачи, отчёты, KPI, клиенты) по организационным подразделениям (секторам), без каких-либо изменений на фронтенде. Фронтенд автоматически получает уже отфильтрованные данные в зависимости от сектора вошедшего пользователя.
+
+---
+
+## Ключевые правила
+
+- Менеджер принадлежит **только одному** сектору → видит только свои данные
+- ADMIN / SUPER_ADMIN → `sector = null` → видит **все** секторы
+- Секторы **динамические** — создаются через API/админку, без хардкода
+- Существующие данные переносятся в один дефолтный сектор «Основной»
+- Фронтенд **не меняется**
+
+---
+
+## Что НЕ меняется (глобальные данные)
+
+| Таблица | Причина |
+|---|---|
+| `Sale`, `ReadySale`, `SalesPlan` | Аналитика продаж — глобальная |
+| `TovaryMapping`, `SchetaMapping`, `DilerMapping` | Общие справочники |
+| `KPITemplate`, `KPITemplateItem` | Общие шаблоны KPI |
+| `ProductCatalog` | Общий каталог |
+| Весь фронтенд | Без изменений |
+
+---
+
+## Бэкенд — Django
+
+### Шаг 1. Новая модель `Sector` (`api/models.py`)
+
+```python
+class Sector(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название')
+    code = models.SlugField(max_length=50, unique=True, verbose_name='Код (slug)')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        'auth.User', null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sectors_created'
+    )
+
+    class Meta:
+        db_table = 'sectors'
+        verbose_name = 'Сектор'
+        verbose_name_plural = 'Секторы'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+```
+
+---
+
+### Шаг 2. Изменения в `UserProfile` (`authentication/models.py`)
+
+Добавить поле `sector` (поле `department` не удалять сразу — пометить как deprecated):
+
+```python
+sector = models.ForeignKey(
+    'api.Sector',
+    null=True, blank=True,
+    on_delete=models.SET_NULL,
+    related_name='members',
+    verbose_name='Сектор',
+    help_text='null = видит все секторы (для ADMIN/SUPER_ADMIN)'
+)
+```
+
+---
+
+### Шаг 3. FK `sector` в операционных моделях (`api/models.py`)
+
+Добавить в каждую из 6 моделей одно поле:
+
+```python
+sector = models.ForeignKey(
+    'Sector',
+    null=True,
+    blank=True,
+    on_delete=models.PROTECT,
+    related_name='<model_name>s',
+    verbose_name='Сектор',
+)
+```
+
+| # | Модель | `related_name` |
+|---|---|---|
+| 1 | `Expense` | `expenses` |
+| 2 | `ExpenseCategory` | `expense_categories` |
+| 3 | `WorkReport` | `work_reports` |
+| 4 | `KanbanColumn` | `kanban_columns` |
+| 5 | `ClientCard` | `client_cards` |
+| 6 | `KPIRecord` | `kpi_records` |
+
+> `KanbanTask` — не трогаем. Сектор наследуется через `column.sector`
+
+---
+
+### Шаг 4. Миграции
+
+```bash
+# Создать миграции
+python manage.py makemigrations api --name="add_sector_model"
+python manage.py makemigrations authentication --name="add_sector_to_userprofile"
+python manage.py makemigrations api --name="add_sector_fk_to_operational_models"
+
+# Применить
+python manage.py migrate
+```
+
+#### Data migration — дефолтный сектор
+
+Создать файл `api/migrations/XXXX_data_migrate_default_sector.py`:
+
+```python
+def forwards(apps, schema_editor):
+    Sector = apps.get_model('api', 'Sector')
+    Expense = apps.get_model('api', 'Expense')
+    ExpenseCategory = apps.get_model('api', 'ExpenseCategory')
+    WorkReport = apps.get_model('api', 'WorkReport')
+    KanbanColumn = apps.get_model('api', 'KanbanColumn')
+    ClientCard = apps.get_model('api', 'ClientCard')
+    KPIRecord = apps.get_model('api', 'KPIRecord')
+
+    default = Sector.objects.create(name='Основной', code='main')
+
+    for Model in [Expense, ExpenseCategory, WorkReport, KanbanColumn, ClientCard, KPIRecord]:
+        Model.objects.filter(sector__isnull=True).update(sector=default)
+```
+
+---
+
+### Шаг 5. Базовый mixin фильтрации (`api/utils.py`)
+
+```python
+class SectorQuerysetMixin:
+    """
+    Автоматически фильтрует queryset по сектору пользователя.
+    ADMIN/SUPER_ADMIN (sector=None) видят все данные без фильтра.
+    """
+    sector_field = 'sector'  # переопределить если путь другой
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        profile = getattr(user, 'profile', None)
+
+        if profile and profile.sector_id is not None:
+            qs = qs.filter(**{self.sector_field: profile.sector_id})
+        # ADMIN/SUPER_ADMIN (sector=None) — без фильтра
+        return qs
+```
+
+---
+
+### Шаг 6. Применить mixin к Views
+
+Добавить `SectorQuerysetMixin` как первый базовый класс:
+
+| View-файл | Класс | Примечание |
+|---|---|---|
+| `expense_views.py` | `ExpenseViewSet`, `ExpenseCategoryViewSet` | |
+| `work_report_views.py` | `WorkReportViewSet` | |
+| `kanban_views.py` | `KanbanColumnViewSet` | |
+| `kanban_views.py` | `KanbanTaskViewSet` | `sector_field = 'column__sector'` |
+| `clientcard_views.py` | `ClientCardViewSet` | |
+| `kpi_views.py` | `KPIRecordViewSet` | |
+
+Пример для `KanbanTaskViewSet` (поле нестандартное):
+
+```python
+class KanbanTaskViewSet(SectorQuerysetMixin, ...):
+    sector_field = 'column__sector'
+```
+
+---
+
+### Шаг 7. CRUD API для управления секторами
+
+Новый файл `api/sector_views.py`:
+
+| Метод | URL | Описание | Права |
+|---|---|---|---|
+| GET | `/api/sectors/` | Список секторов | IsAuthenticated |
+| POST | `/api/sectors/` | Создать сектор | ADMIN+ |
+| GET | `/api/sectors/{id}/` | Детали сектора | IsAuthenticated |
+| PATCH | `/api/sectors/{id}/` | Редактировать | ADMIN+ |
+| DELETE | `/api/sectors/{id}/` | Деактивировать (`is_active=False`), **не удалять из БД** | ADMIN+ |
+
+---
+
+### Шаг 8. Обновить `/api/auth/me/`
+
+В ответ добавить поле `sector`:
+
+```json
+{
+  "id": 5,
+  "username": "manager1",
+  "role": "MANAGER",
+  "sector": {
+    "id": 1,
+    "name": "Основной",
+    "code": "main"
+  }
+}
+```
+
+---
+
+### Шаг 9. Admin-панель Django (`api/admin.py`)
+
+Зарегистрировать модель `Sector`:
+
+```python
+@admin.register(Sector)
+class SectorAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'is_active', 'created_at']
+    list_filter = ['is_active']
+    search_fields = ['name', 'code']
+    prepopulated_fields = {'code': ('name',)}
+```
+
+---
+
+## Тестирование (локально)
+
+### Подготовка среды
+
+```bash
+# 1. Создать ветку
+git checkout -b feature/multi-sector
+
+# 2. Сделать бэкап продакшн-БД
+pg_dump -h localhost -U salesuser salesdb > backup_before_sector.sql
+
+# 3. Создать локальную тестовую БД
+createdb salesdb_test
+psql -U salesuser salesdb_test < backup_before_sector.sql
+```
+
+### Сценарии для проверки
+
+| # | Действие | Ожидаемый результат |
+|---|---|---|
+| 1 | Создать 2 сектора: «Сектор А», «Сектор Б» | Оба в БД, `is_active=True` |
+| 2 | Создать менеджера в «Секторе А» | `UserProfile.sector_id = <id Сектора А>` |
+| 3 | Создать расход в «Секторе А» | `Expense.sector = Сектор А` |
+| 4 | Логин менеджера Сектора А → `GET /api/expenses/` | Видит **только** расходы Сектора А |
+| 5 | Логин менеджера Сектора Б → `GET /api/expenses/` | Видит **только** расходы Сектора Б |
+| 6 | Логин ADMIN (sector=null) → `GET /api/expenses/` | Видит **все** расходы обоих секторов |
+| 7 | Менеджер А создаёт Kanban-колонку | Колонка привязана к Сектору А |
+| 8 | Менеджер Б → `GET /api/kanban/columns/` | Видит только колонки Сектора Б |
+| 9 | Менеджер А создаёт задачу в своей колонке | Задача доступна только Сектору А |
+| 10 | `GET /api/sectors/` от менеджера | Возвращает список активных секторов |
+| 11 | `DELETE /api/sectors/{id}/` от менеджера | 403 Forbidden |
+| 12 | `DELETE /api/sectors/{id}/` от ADMIN | `is_active=False`, запись в БД остаётся |
+| 13 | Существующие данные (data migration) | Все старые записи → `sector = 'Основной'` |
+
+---
+
+## Порядок реализации (итого 9 шагов)
+
+```
+[ ] 1. git checkout -b feature/multi-sector
+[ ] 2. Модель Sector + миграция
+[ ] 3. UserProfile.sector FK + миграция
+[ ] 4. FK sector в 6 операционных моделях + data migration (дефолтный сектор)
+[ ] 5. SectorQuerysetMixin в api/utils.py
+[ ] 6. Применить mixin к 6 ViewSet'ам
+[ ] 7. CRUD API секторов (sector_views.py + urls.py)
+[ ] 8. Обновить /api/auth/me/ — добавить поле sector
+[ ] 9. Зарегистрировать Sector в admin.py
+```
+
+---
+
+## После успешного тестирования
+
+```bash
+# Смержить в main
+git checkout main
+git merge feature/multi-sector
+
+# Применить миграции на продакшн
+python manage.py migrate
+
+# Перезапустить сервисы
+sudo systemctl restart sales-gunicorn
+```

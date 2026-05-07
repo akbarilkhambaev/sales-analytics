@@ -14,7 +14,7 @@ from datetime import date
 
 from django.core.cache import cache
 from django.db.models import Sum, Q
-from .utils import safe_kol_vo_sum
+from .utils import safe_kol_vo_sum, get_sale_sector_q, get_sector_cache_prefix
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -114,9 +114,11 @@ class PlanFactViewSet(viewsets.ViewSet):
         sellout_curr_from = p.get('sellout_curr_from', '2026-01-01')
         sellout_curr_to   = p.get('sellout_curr_to',   '2026-12-31')
 
-        # Кеш по всем параметрам
+        # Кеш по всем параметрам + сектор
+        sector_prefix = get_sector_cache_prefix(request.user)
+        sector_q = get_sale_sector_q(request.user)
         cache_key = (
-            f'planfact_{sales_prev_from}_{sales_prev_to}'
+            f'planfact_{sector_prefix}_{sales_prev_from}_{sales_prev_to}'
             f'_{sales_curr_from}_{sales_curr_to}'
             f'_{plan_from}_{plan_to}'
             f'_{sellout_prev_from}_{sellout_prev_to}'
@@ -134,8 +136,7 @@ class PlanFactViewSet(viewsets.ViewSet):
 
         # ── 1. Продажи из `sales` (data — строка 'YYYY-MM-DD') ──────────────
         base_sales = (
-            Sale.objects
-            .filter(kod_tovara__isnull=False)
+            Sale.objects            .filter(sector_q)            .filter(kod_tovara__isnull=False)
             .exclude(kod_tovara='')
         )
 
@@ -153,7 +154,7 @@ class PlanFactViewSet(viewsets.ViewSet):
 
         # ── 2. SELLOUT из `ready_sales` (data — DateField) ──────────────────
         base_sellout = (
-            ReadySale.objects.filter(kod_tovara__isnull=False).exclude(kod_tovara='')
+            ReadySale.objects.filter(sector_q).filter(kod_tovara__isnull=False).exclude(kod_tovara='')
         )
 
         def _sellout_sum(from_d: date, to_d: date) -> dict[str, float]:
@@ -177,6 +178,7 @@ class PlanFactViewSet(viewsets.ViewSet):
         # Запрашиваем план по каждому месяцу отдельно для пропорционального расчёта
         plan_qs = (
             SalesPlan.objects
+            .filter(sector_q)
             .filter(pl_q)
             .values('kod_tovara', 'year', 'month')
             .annotate(total=Sum('plan_kg'))
@@ -209,6 +211,7 @@ class PlanFactViewSet(viewsets.ViewSet):
         # ПЛАН (мес.) — всегда полный план за месяц pl_to (весь февраль целиком и т.д.)
         full_month_qs = (
             SalesPlan.objects
+            .filter(sector_q)
             .filter(year=pl_to.year, month=pl_to.month)
             .values('kod_tovara')
             .annotate(total=Sum('plan_kg'))
@@ -220,10 +223,10 @@ class PlanFactViewSet(viewsets.ViewSet):
 
         # ── 4. Маппинг товар → группа (из SalesPlan + Sale) ─────────────────
         kod_to_group: dict[str, str] = {}
-        for r in SalesPlan.objects.filter(gruppa_tovara__isnull=False).exclude(gruppa_tovara='').values('kod_tovara', 'gruppa_tovara').distinct():
+        for r in SalesPlan.objects.filter(sector_q).filter(gruppa_tovara__isnull=False).exclude(gruppa_tovara='').values('kod_tovara', 'gruppa_tovara').distinct():
             kod_to_group[r['kod_tovara']] = r['gruppa_tovara']
         # дополняем из Sale для товаров не в плане
-        for r in Sale.objects.filter(gruppa_tovara__isnull=False).exclude(gruppa_tovara='').values('kod_tovara', 'gruppa_tovara').distinct():
+        for r in Sale.objects.filter(sector_q).filter(gruppa_tovara__isnull=False).exclude(gruppa_tovara='').values('kod_tovara', 'gruppa_tovara').distinct():
             if r['kod_tovara'] not in kod_to_group:
                 kod_to_group[r['kod_tovara']] = r['gruppa_tovara']
 

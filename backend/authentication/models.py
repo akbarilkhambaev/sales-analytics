@@ -47,6 +47,15 @@ class UserProfile(models.Model):
         null=True,
         verbose_name='Отдел'
     )
+
+    sector = models.ForeignKey(
+        'api.Sector',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='members',
+        verbose_name='Сектор',
+        help_text='null = видит все секторы (для ADMIN/SUPER_ADMIN)',
+    )
     
     created_at = models.DateTimeField(
         auto_now_add=True,

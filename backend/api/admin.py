@@ -1,11 +1,21 @@
 from django.contrib import admin
 from .models import (
+    Sector,
     Sale, ReadySale, Expense, ExpenseCategory, WorkReport, WorkReportPhoto,
     ProductCatalog, ClientCard, ClientVisitReport, VisitReportPhoto,
     KanbanColumn, KanbanTask,
     KPITemplate, KPITemplateItem, KPIRecord, KPIRecordItem,
 )
 from .configurator_models import Series, MaterialRates, ProfileColor, GlassOption, Accessory
+
+
+@admin.register(Sector)
+class SectorAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'is_active', 'created_at']
+    list_filter = ['is_active']
+    search_fields = ['name', 'code']
+    prepopulated_fields = {'code': ('name',)}
+    readonly_fields = ['created_at']
 
 
 # ─── Configurator Admin ───────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from datetime import date, datetime
 
 from .models import Sale, SalesPlan
-from .utils import safe_kol_vo_sum
+from .utils import safe_kol_vo_sum, get_sale_sector_q, get_sector_cache_prefix
 
 
 GROUPBY_FIELDS = {
@@ -101,13 +101,15 @@ class ABCAnalysisView(APIView):
         if groupby not in GROUPBY_FIELDS:
             return Response({'error': f'Некорректный groupby: {groupby}'}, status=400)
 
-        cache_key = f'abcxyz_v1_{groupby}_{start_date}_{end_date}_{limit}'
+        sector_prefix = get_sector_cache_prefix(request.user)
+        cache_key = f'abcxyz_v1_{sector_prefix}_{groupby}_{start_date}_{end_date}_{limit}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
         db_field = GROUPBY_FIELDS[groupby]
-        qs = Sale.objects.exclude(**{f'{db_field}__isnull': True}).exclude(**{f'{db_field}': ''})
+        sector_q = get_sale_sector_q(request.user)
+        qs = Sale.objects.filter(sector_q).exclude(**{f'{db_field}__isnull': True}).exclude(**{f'{db_field}': ''})
         if start_date:
             qs = qs.filter(data__gte=start_date)
         if end_date:
@@ -241,7 +243,8 @@ class MonthlyTrendView(APIView):
             return Response({'error': f'Некорректный groupby: {groupby}'}, status=400)
 
         db_field = GROUPBY_FIELDS[groupby]
-        qs = Sale.objects.exclude(**{f'{db_field}__isnull': True}).exclude(**{f'{db_field}': ''})
+        sector_q = get_sale_sector_q(request.user)
+        qs = Sale.objects.filter(sector_q).exclude(**{f'{db_field}__isnull': True}).exclude(**{f'{db_field}': ''})
 
         if start_date:
             qs = qs.filter(data__gte=start_date)
@@ -317,12 +320,13 @@ class RegionMapView(APIView):
         gruppa = request.query_params.get('gruppa', '').strip()
         kod    = request.query_params.get('kod', '').strip()
 
-        cache_key = f'region_map_{year}_{month}_{gruppa}_{kod}'
+        cache_key = f'region_map_{get_sector_cache_prefix(request.user)}_{year}_{month}_{gruppa}_{kod}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
-        qs = Sale.objects.filter(data__startswith=str(year))
+        sector_q = get_sale_sector_q(request.user)
+        qs = Sale.objects.filter(sector_q, data__startswith=str(year))
         if month:
             month_str = f'{year}-{month:02d}'
             qs = qs.filter(data__startswith=month_str)
@@ -409,20 +413,23 @@ class RegionMapFiltersView(APIView):
 
     def get(self, request):
         gruppa = request.query_params.get('gruppa', '').strip()
-        cache_key = f'region_map_filters_{gruppa}'
+        sector_prefix = get_sector_cache_prefix(request.user)
+        cache_key = f'region_map_filters_{sector_prefix}_{gruppa}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
+        sector_q = get_sale_sector_q(request.user)
         groups = (
             Sale.objects
+            .filter(sector_q)
             .exclude(gruppa_tovara__isnull=True)
             .exclude(gruppa_tovara='')
             .values_list('gruppa_tovara', flat=True)
             .distinct()
             .order_by('gruppa_tovara')
         )
-        codes_qs = Sale.objects.exclude(kod_tovara__isnull=True).exclude(kod_tovara='')
+        codes_qs = Sale.objects.filter(sector_q).exclude(kod_tovara__isnull=True).exclude(kod_tovara='')
         if gruppa:
             codes_qs = codes_qs.filter(gruppa_tovara=gruppa)
         codes = (

@@ -11,6 +11,7 @@ from .serializers import (
     KPITemplateSerializer, KPITemplateItemSerializer,
     KPIRecordSerializer, KPIRecordListSerializer, KPIRecordItemSerializer,
 )
+from .utils import get_sale_sector_q
 
 
 def _is_admin(user):
@@ -65,6 +66,10 @@ class KPIRecordViewSet(viewsets.ModelViewSet):
         ).prefetch_related(
             'record_items__template_item'
         )
+        # Sector isolation: managers see only their sector's records
+        profile = getattr(self.request.user, 'profile', None)
+        if profile and profile.sector_id is not None:
+            qs = qs.filter(sector=profile.sector_id)
         # Не-админ видит только свои записи
         if not _is_admin(self.request.user):
             qs = qs.filter(manager=self.request.user)
@@ -134,20 +139,26 @@ class KPIRecordViewSet(viewsets.ModelViewSet):
 
         if ptype == 'month':
             month_str = str(pnum).zfill(2)
+            sector_q = get_sale_sector_q(self.request.user)
             sales = ReadySale.objects.filter(
+                sector_q,
                 diler__icontains=manager.get_full_name() or manager.username,
                 data__year=year,
                 data__month=pnum,
             )
         elif ptype == 'quarter':
             months = range((pnum - 1) * 3 + 1, (pnum - 1) * 3 + 4)
+            sector_q = get_sale_sector_q(self.request.user)
             sales = ReadySale.objects.filter(
+                sector_q,
                 diler__icontains=manager.get_full_name() or manager.username,
                 data__year=year,
                 data__month__in=months,
             )
         else:  # year
+            sector_q = get_sale_sector_q(self.request.user)
             sales = ReadySale.objects.filter(
+                sector_q,
                 diler__icontains=manager.get_full_name() or manager.username,
                 data__year=year,
             )

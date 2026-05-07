@@ -285,6 +285,16 @@ export interface ExpenseStatistics {
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'VIEWER';
 
+export interface Sector {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  is_active: boolean;
+  gruppa_filters: string[];
+  created_at: string;
+}
+
 // Telegram integration
 export interface TelegramLinkStatus {
   linked: boolean;
@@ -310,6 +320,8 @@ export interface UserData {
   role_display: string;
   phone: string;
   department: string;
+  sector_id: number | null;
+  sector: { id: number; name: string; code: string } | null;
   is_active: boolean;
   last_login: string | null;
   date_joined: string;
@@ -406,6 +418,7 @@ export interface CreateUserData {
   role: UserRole;
   phone?: string;
   department?: string;
+  sector_id?: number | null;
 }
 
 export interface ChangePasswordData {

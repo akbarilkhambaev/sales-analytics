@@ -8,6 +8,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import WorkReport, WorkReportPhoto
 from .serializers import WorkReportSerializer, WorkReportPhotoSerializer
+from .utils import SectorQuerysetMixin
 from authentication.permissions import IsAdmin
 
 
@@ -24,7 +25,7 @@ class IsAdminOrOwner(IsAuthenticated):
         return obj.created_by == request.user
 
 
-class WorkReportViewSet(viewsets.ModelViewSet):
+class WorkReportViewSet(SectorQuerysetMixin, viewsets.ModelViewSet):
     """ViewSet для отчётов по выполненным работам"""
     
     queryset = WorkReport.objects.select_related(

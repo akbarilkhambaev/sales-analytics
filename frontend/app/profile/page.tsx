@@ -24,10 +24,14 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Layers,
+  Power,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
-import type { UserData, CreateUserData, ChangePasswordData, UserRole, TelegramLinkStatus, TelegramLinkCodeResponse, UserLoginLog } from '@/lib/types';
+import type { UserData, CreateUserData, ChangePasswordData, UserRole, TelegramLinkStatus, TelegramLinkCodeResponse, UserLoginLog, Sector } from '@/lib/types';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -38,15 +42,29 @@ export default function ProfilePage() {
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
+  // Sectors
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [newSector, setNewSector] = useState({ name: '', code: '', description: '' });
+  const [sectorError, setSectorError] = useState('');
+  const [sectorSaving, setSectorSaving] = useState(false);
+  const [showCreateSector, setShowCreateSector] = useState(false);
+  const [editingFilters, setEditingFilters] = useState<{ sectorId: number; selected: string[] } | null>(null);
+  const [filterSaving, setFilterSaving] = useState(false);
+  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+
+  // Show password in create user form
+  const [showUserPassword, setShowUserPassword] = useState(false);
+
   // Login logs
   const [loginLogs, setLoginLogs] = useState<UserLoginLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [selectedUserLogs, setSelectedUserLogs] = useState<number | null>(null);
 
   // Active panel
-  const [activePanel, setActivePanel] = useState<null | 'last-login' | 'telegram' | 'security' | 'management'>(null);
+  const [activePanel, setActivePanel] = useState<null | 'last-login' | 'telegram' | 'security' | 'management' | 'sectors'>(null);
 
-  const selectPanel = (panel: 'last-login' | 'telegram' | 'security' | 'management') => {
+  const selectPanel = (panel: 'last-login' | 'telegram' | 'security' | 'management' | 'sectors') => {
     setActivePanel(prev => prev === panel ? null : panel);
   };
 
@@ -72,6 +90,7 @@ export default function ProfilePage() {
     role: 'VIEWER',
     phone: '',
     department: '',
+    sector_id: null,
   });
 
   useEffect(() => {
@@ -85,9 +104,75 @@ export default function ProfilePage() {
     if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
       loadUsers();
     }
+    if (user?.role === 'SUPER_ADMIN') {
+      loadSectors();
+    }
     loadTelegramStatus();
     loadLoginLogs();
   }, [isAuthenticated, authLoading, router, user]);
+
+  const loadSectors = async () => {
+    try {
+      setSectors(await apiClient.getSectors());
+    } catch { /* ignore */ }
+  };
+
+  const handleCreateSector = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSectorError('');
+    setSectorSaving(true);
+    try {
+      await apiClient.createSector(newSector);
+      setNewSector({ name: '', code: '', description: '' });
+      setShowCreateSector(false);
+      await loadSectors();
+    } catch (err) {
+      setSectorError(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setSectorSaving(false);
+    }
+  };
+
+  const handleToggleSector = async (id: number) => {
+    try {
+      await apiClient.toggleSectorActive(id);
+      await loadSectors();
+    } catch { /* ignore */ }
+  };
+
+  const handleSaveGroupFilters = async () => {
+    if (!editingFilters) return;
+    setFilterSaving(true);
+    try {
+      await apiClient.updateSector(editingFilters.sectorId, { gruppa_filters: editingFilters.selected });
+      await loadSectors();
+      setEditingFilters(null);
+    } catch { /* ignore */ } finally {
+      setFilterSaving(false);
+    }
+  };
+
+  const openEditFilters = async (sector: Sector) => {
+    setEditingFilters({ sectorId: sector.id, selected: sector.gruppa_filters || [] });
+    if (availableGroups.length === 0) {
+      setGroupsLoading(true);
+      try {
+        const data = await apiClient.getRegionMapFilters();
+        setAvailableGroups(data.groups);
+      } catch { /* ignore */ } finally {
+        setGroupsLoading(false);
+      }
+    }
+  };
+
+  const toggleGroupFilter = (group: string) => {
+    if (!editingFilters) return;
+    setEditingFilters(prev => {
+      if (!prev) return prev;
+      const has = prev.selected.includes(group);
+      return { ...prev, selected: has ? prev.selected.filter(g => g !== group) : [...prev.selected, group] };
+    });
+  };
 
   const loadTelegramStatus = async () => {
     try {
@@ -186,6 +271,7 @@ export default function ProfilePage() {
         role: 'VIEWER',
         phone: '',
         department: '',
+        sector_id: null,
       });
       loadUsers();
     } catch (error) {
@@ -197,12 +283,18 @@ export default function ProfilePage() {
   const handleUpdateRole = async (userId: number, newRole: UserRole) => {
     try {
       await apiClient.updateUserRole(userId, newRole);
-      alert('Роль успешно изменена!');
       loadUsers();
     } catch (error) {
       console.error('Error updating role:', error);
       alert('Ошибка при изменении роли');
     }
+  };
+
+  const handleChangeUserSector = async (userId: number, sectorId: number | null) => {
+    try {
+      await apiClient.updateUserSector(userId, sectorId);
+      await loadUsers();
+    } catch { /* ignore */ }
   };
 
   const handleDeleteUser = async (userId: number, username: string) => {
@@ -335,7 +427,15 @@ export default function ProfilePage() {
                   <span className="text-sm font-medium text-gray-900">Выполненные работы</span>
                 </Link>
 
-                {isAdmin ? (
+                <Link
+                  href="/tasks"
+                  className="flex flex-col items-center justify-center p-4 bg-violet-50 hover:bg-violet-100 rounded-lg transition border border-violet-200"
+                >
+                  <ClipboardList className="w-8 h-8 text-violet-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Доска задач</span>
+                </Link>
+
+                {isAdmin && (
                   <button
                     onClick={() => selectPanel('management')}
                     className={`flex flex-col items-center justify-center p-4 rounded-lg transition border ${
@@ -343,27 +443,22 @@ export default function ProfilePage() {
                     }`}
                   >
                     <Users className="w-8 h-8 text-emerald-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Управление</span>
-                    <span className="text-xs text-gray-400 mt-1">Пользователи</span>
+                    <span className="text-sm font-medium text-gray-900">Пользователи</span>
+                    <span className="text-xs text-gray-400 mt-1">Управление</span>
                   </button>
-                ) : (
-                  <Link
-                    href="/tasks"
-                    className="flex flex-col items-center justify-center p-4 bg-violet-50 hover:bg-violet-100 rounded-lg transition border border-violet-200"
-                  >
-                    <ClipboardList className="w-8 h-8 text-violet-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Доска задач</span>
-                  </Link>
                 )}
 
-                {isAdmin && (
-                  <Link
-                    href="/tasks"
-                    className="flex flex-col items-center justify-center p-4 bg-violet-50 hover:bg-violet-100 rounded-lg transition border border-violet-200"
+                {isSuperAdmin && (
+                  <button
+                    onClick={() => selectPanel('sectors')}
+                    className={`flex flex-col items-center justify-center p-4 rounded-lg transition border ${
+                      activePanel === 'sectors' ? 'bg-purple-100 border-purple-500 ring-2 ring-purple-300' : 'bg-purple-50 hover:bg-purple-100 border-purple-200'
+                    }`}
                   >
-                    <ClipboardList className="w-8 h-8 text-violet-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Доска задач</span>
-                  </Link>
+                    <Layers className="w-8 h-8 text-purple-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Секторы</span>
+                    <span className="text-xs text-gray-400 mt-1">Управление</span>
+                  </button>
                 )}
 
                 {/* Last Login tile */}
@@ -582,6 +677,152 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {activePanel === 'sectors' && isSuperAdmin && (
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-purple-600" /> Управление секторами
+                  </h3>
+                  <button
+                    onClick={() => { setShowCreateSector(v => !v); setSectorError(''); }}
+                    className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" /> Новый сектор
+                  </button>
+                </div>
+
+                {showCreateSector && (
+                  <form onSubmit={handleCreateSector} className="mb-5 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Название *</label>
+                        <input required placeholder="Ташкент" value={newSector.name}
+                          onChange={e => setNewSector(p => ({ ...p, name: e.target.value }))}
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Код * (slug)</label>
+                        <input required placeholder="tashkent" value={newSector.code}
+                          onChange={e => setNewSector(p => ({ ...p, code: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Описание</label>
+                        <input placeholder="Необязательно" value={newSector.description}
+                          onChange={e => setNewSector(p => ({ ...p, description: e.target.value }))}
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                      </div>
+                    </div>
+                    {sectorError && <p className="text-red-600 text-sm mb-2">{sectorError}</p>}
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={sectorSaving}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1.5">
+                        {sectorSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+                        Создать
+                      </button>
+                      <button type="button" onClick={() => setShowCreateSector(false)}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">
+                        Отмена
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Название</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Код</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Описание</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Статус</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Группы товара</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {sectors.map(s => (
+                        <tr key={s.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2.5 font-medium text-gray-900">{s.name}</td>
+                          <td className="px-3 py-2.5 text-gray-500 font-mono text-xs">{s.code}</td>
+                          <td className="px-3 py-2.5 text-gray-400">{s.description || '—'}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                              s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {s.is_active ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                              {s.is_active ? 'Активен' : 'Отключён'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 max-w-xs">
+                            {editingFilters?.sectorId === s.id ? (
+                              <div className="relative">
+                                <div className="border border-purple-300 rounded-lg bg-white shadow-lg p-3 min-w-[220px] z-20">
+                                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Группы товара</p>
+                                  {groupsLoading ? (
+                                    <p className="text-xs text-gray-400 py-2">Загрузка...</p>
+                                  ) : availableGroups.length === 0 ? (
+                                    <p className="text-xs text-gray-400 py-2">Нет данных</p>
+                                  ) : (
+                                    <div className="space-y-1 max-h-48 overflow-y-auto mb-3">
+                                      {availableGroups.map(g => (
+                                        <label key={g} className="flex items-center gap-2 cursor-pointer hover:bg-purple-50 px-1 py-0.5 rounded">
+                                          <input
+                                            type="checkbox"
+                                            checked={editingFilters.selected.includes(g)}
+                                            onChange={() => toggleGroupFilter(g)}
+                                            className="accent-purple-600"
+                                          />
+                                          <span className="text-sm font-mono text-gray-700">{g}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {editingFilters.selected.length === 0 && (
+                                    <p className="text-xs text-amber-600 mb-2">⚠ Пусто = видеть все данные</p>
+                                  )}
+                                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                                    <button onClick={handleSaveGroupFilters} disabled={filterSaving}
+                                      className="flex-1 px-2 py-1.5 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 disabled:opacity-50">
+                                      {filterSaving ? 'Сохранение...' : 'Сохранить'}
+                                    </button>
+                                    <button onClick={() => setEditingFilters(null)}
+                                      className="px-2 py-1.5 text-gray-500 hover:text-gray-700 text-xs border rounded">
+                                      Отмена
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 flex-wrap cursor-pointer group"
+                                onClick={() => openEditFilters(s)}>
+                                {(s.gruppa_filters || []).length > 0
+                                  ? (s.gruppa_filters || []).map(f => (
+                                      <span key={f} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-mono">{f}</span>
+                                    ))
+                                  : <span className="text-gray-300 text-xs italic group-hover:text-purple-400">нажмите, чтобы задать фильтры</span>
+                                }
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <button onClick={() => handleToggleSector(s.id)}
+                              title={s.is_active ? 'Деактивировать' : 'Активировать'}
+                              className={`p-1.5 rounded-lg transition ${s.is_active ? 'hover:bg-red-50 text-red-500' : 'hover:bg-green-50 text-green-600'}`}>
+                              <Power className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {sectors.length === 0 && (
+                        <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-400">Нет секторов</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {activePanel === 'management' && isAdmin && (
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -625,7 +866,12 @@ export default function ProfilePage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Пароль *</label>
-                        <input type="password" value={newUserData.password} onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" minLength={8} required />
+                        <div className="relative">
+                          <input type={showUserPassword ? 'text' : 'password'} value={newUserData.password} onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-9 text-sm" minLength={8} required />
+                          <button type="button" onClick={() => setShowUserPassword(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            {showUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Роль *</label>
@@ -633,8 +879,21 @@ export default function ProfilePage() {
                           <option value="VIEWER">Просмотр</option>
                           <option value="MANAGER">Менеджер</option>
                           <option value="ADMIN">Администратор</option>
+                          {isSuperAdmin && <option value="SUPER_ADMIN">Главный администратор</option>}
                         </select>
                       </div>
+                      {isSuperAdmin && sectors.length > 0 && (
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Сектор</label>
+                          <select value={newUserData.sector_id ?? ''} onChange={e => setNewUserData({ ...newUserData, sector_id: e.target.value ? Number(e.target.value) : null })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <option value="">— Все секторы (нет ограничения) —</option>
+                            {sectors.filter(s => s.is_active).map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div className="col-span-2">
                         <button type="submit" className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold">Создать пользователя</button>
                       </div>
@@ -649,15 +908,16 @@ export default function ProfilePage() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Пользователь</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Роль</th>
+                        {isSuperAdmin && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сектор</th>}
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Последний вход</th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {loading ? (
-                        <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
+                        <tr><td colSpan={isSuperAdmin ? 6 : 5} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
                       ) : users.length === 0 ? (
-                        <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Нет пользователей</td></tr>
+                        <tr><td colSpan={isSuperAdmin ? 6 : 5} className="px-4 py-8 text-center text-gray-500">Нет пользователей</td></tr>
                       ) : users.map((u) => (
                         <tr key={u.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
@@ -678,6 +938,20 @@ export default function ProfilePage() {
                               <option value="VIEWER">Просмотр</option>
                             </select>
                           </td>
+                          {isSuperAdmin && (
+                            <td className="px-4 py-3">
+                              <select
+                                value={u.sector_id ?? ''}
+                                onChange={e => handleChangeUserSector(u.id, e.target.value ? Number(e.target.value) : null)}
+                                className="text-sm border rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                              >
+                                <option value="">— Все —</option>
+                                {sectors.filter(s => s.is_active).map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-sm text-gray-500">
                             {u.last_login ? new Date(u.last_login).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                           </td>

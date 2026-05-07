@@ -39,6 +39,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         
         # Добавляем информацию о пользователе в ответ
         profile = self._get_or_create_profile(self.user)
+        sector = None
+        if profile.sector_id:
+            sector = {
+                'id': profile.sector.id,
+                'name': profile.sector.name,
+                'code': profile.sector.code,
+            }
         data['user'] = {
             'id': self.user.id,
             'username': self.user.username,
@@ -48,6 +55,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'is_super_admin': profile.is_super_admin,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
+            'sector': sector,
             'permissions': {
                 'can_upload': profile.can_upload,
                 'can_export': profile.can_export,
@@ -65,6 +73,8 @@ class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='profile.get_role_display', read_only=True)
     phone = serializers.CharField(source='profile.phone', allow_blank=True, required=False)
     department = serializers.CharField(source='profile.department', allow_blank=True, required=False)
+    sector_id = serializers.IntegerField(source='profile.sector_id', allow_null=True, required=False)
+    sector = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     
     class Meta:
@@ -72,10 +82,21 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'role', 'role_display', 'phone', 'department',
+            'sector_id', 'sector',
             'is_active', 'last_login', 'date_joined', 'permissions'
         ]
         read_only_fields = ['id', 'last_login', 'date_joined']
     
+    def get_sector(self, obj):
+        profile = obj.profile if hasattr(obj, 'profile') else None
+        if not profile or not profile.sector_id:
+            return None
+        return {
+            'id': profile.sector.id,
+            'name': profile.sector.name,
+            'code': profile.sector.code,
+        }
+
     def get_permissions(self, obj):
         profile = obj.profile if hasattr(obj, 'profile') else None
         if not profile:
@@ -111,13 +132,14 @@ class CreateUserSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=UserProfile.Role.choices, default=UserProfile.Role.VIEWER)
     phone = serializers.CharField(required=False, allow_blank=True)
     department = serializers.CharField(required=False, allow_blank=True)
+    sector_id = serializers.IntegerField(required=False, allow_null=True)
     password = serializers.CharField(write_only=True, min_length=8)
     
     class Meta:
         model = User
         fields = [
             'username', 'email', 'first_name', 'last_name',
-            'password', 'role', 'phone', 'department'
+            'password', 'role', 'phone', 'department', 'sector_id'
         ]
     
     def create(self, validated_data):
@@ -125,6 +147,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         role = validated_data.pop('role', UserProfile.Role.VIEWER)
         phone = validated_data.pop('phone', '')
         department = validated_data.pop('department', '')
+        sector_id = validated_data.pop('sector_id', None)
         password = validated_data.pop('password')
         
         # Создаем пользователя
@@ -138,6 +161,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         profile.role = role
         profile.phone = phone
         profile.department = department
+        profile.sector_id = sector_id
         profile.save()
         
         return user

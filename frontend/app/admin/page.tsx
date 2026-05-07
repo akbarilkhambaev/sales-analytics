@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Home, Upload, FileSpreadsheet, Database, CheckCircle, AlertCircle, Loader2, FileText, Trash2, BookOpen, MapPin, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
@@ -22,8 +21,10 @@ interface TaskStatus {
 }
 
 export default function AdminPage() {
-  const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [redirecting, setRedirecting] = useState(false);
+
+  // ── Upload state ──────────────────────────────────────────────────────────
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dataType, setDataType] = useState<DataType>('sales');
   const [uploading, setUploading] = useState(false);
@@ -33,23 +34,17 @@ export default function AdminPage() {
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-  // Защита: только SUPER_ADMIN
+  // ── Auth guard ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
+    if (!isAuthenticated || user?.role !== 'SUPER_ADMIN') {
+      setRedirecting(true);
+      window.location.href = isAuthenticated ? '/' : '/login';
     }
-    if (user?.role !== 'SUPER_ADMIN') {
-      router.push('/');
-    }
-  }, [authLoading, isAuthenticated, user, router]);
-
-  const getToken = () =>
-    typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  }, [authLoading, isAuthenticated, user]);
 
   const authHeaders = (): Record<string, string> => {
-    const token = getToken();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
@@ -126,7 +121,7 @@ export default function AdminPage() {
   const isDone = taskStatus?.status === 'done';
   const isError = taskStatus?.status === 'error';
 
-  if (authLoading || !isAuthenticated || user?.role !== 'SUPER_ADMIN') {
+  if (authLoading || redirecting || !isAuthenticated || user?.role !== 'SUPER_ADMIN') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         {authLoading ? (

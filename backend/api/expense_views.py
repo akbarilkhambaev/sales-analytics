@@ -12,10 +12,11 @@ from .serializers import (
     ExpenseCategorySerializer,
     ExpenseStatisticsSerializer
 )
+from .utils import SectorQuerysetMixin
 from authentication.permissions import IsAdmin
 
 
-class ExpenseCategoryViewSet(viewsets.ModelViewSet):
+class ExpenseCategoryViewSet(SectorQuerysetMixin, viewsets.ModelViewSet):
     """ViewSet для категорий расходов"""
     
     queryset = ExpenseCategory.objects.all()
@@ -29,7 +30,7 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class ExpenseViewSet(viewsets.ModelViewSet):
+class ExpenseViewSet(SectorQuerysetMixin, viewsets.ModelViewSet):
     """ViewSet для расходов отдела"""
     
     queryset = Expense.objects.select_related(

@@ -25,8 +25,10 @@ from .configurator_views import (
 from .monitor_views import ServerMonitorView
 from .ai_views import AIChatView
 from .my_dashboard_view import MyDashboardView
+from .sector_views import SectorViewSet
 
 router = DefaultRouter()
+router.register(r'sectors', SectorViewSet, basename='sectors')
 router.register(r'sales', SalesViewSet, basename='sales')
 router.register(r'clients', ClientsViewSet, basename='clients')
 router.register(r'expenses', ExpenseViewSet, basename='expenses')

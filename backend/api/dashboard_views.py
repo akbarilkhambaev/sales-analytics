@@ -4,7 +4,7 @@ Views для дашборда с метриками и аналитикой
 
 from django.db.models import Sum, Count, Q, F
 from django.db.models.functions import Substr, TruncMonth, TruncDate
-from .utils import safe_kol_vo_sum
+from .utils import safe_kol_vo_sum, get_sale_sector_q, get_sector_cache_prefix
 from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -35,14 +35,16 @@ class DashboardMetricsView(APIView):
             start_date = request.query_params.get('start_date')
             end_date = request.query_params.get('end_date')
 
-            # Ключ кеша зависит от параметров запроса
-            cache_key = f'dashboard_metrics_{start_date}_{end_date}'
+            # Ключ кеша зависит от параметров запроса и сектора
+            sector_prefix = get_sector_cache_prefix(request.user)
+            cache_key = f'dashboard_metrics_{sector_prefix}_{start_date}_{end_date}'
             cached = cache.get(cache_key)
             if cached is not None:
                 return Response(cached)
 
-            # Базовый queryset
-            sales_qs = Sale.objects.all()
+            # Базовый queryset с фильтром по сектору
+            sector_q = get_sale_sector_q(request.user)
+            sales_qs = Sale.objects.filter(sector_q)
 
             # Применяем фильтры по датам
             if start_date:
@@ -216,10 +218,11 @@ class SalesComparisonView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Данные первого периода
-            period1_data = self._get_period_data(period1_start, period1_end)
+            sector_q = get_sale_sector_q(request.user)
+            period1_data = self._get_period_data(period1_start, period1_end, sector_q)
             
             # Данные второго периода
-            period2_data = self._get_period_data(period2_start, period2_end)
+            period2_data = self._get_period_data(period2_start, period2_end, sector_q)
             
             # Расчет изменений
             changes = {
@@ -248,9 +251,11 @@ class SalesComparisonView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _get_period_data(self, start_date, end_date):
+    def _get_period_data(self, start_date, end_date, sector_q=None):
         """Получить данные за период"""
-        sales_qs = Sale.objects.filter(data__gte=start_date, data__lte=end_date)
+        from django.db.models import Q
+        q = sector_q if sector_q is not None else Q()
+        sales_qs = Sale.objects.filter(q, data__gte=start_date, data__lte=end_date)
         
         sales_volume = sales_qs.aggregate(
             total=safe_kol_vo_sum()

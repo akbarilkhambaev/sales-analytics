@@ -6,10 +6,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import KanbanColumn, KanbanTask
 from .serializers import KanbanColumnSerializer, KanbanTaskSerializer, UserBriefSerializer
+from .utils import SectorQuerysetMixin
 from authentication.permissions import IsAdmin
 
 
-class KanbanColumnViewSet(viewsets.ModelViewSet):
+class KanbanColumnViewSet(SectorQuerysetMixin, viewsets.ModelViewSet):
     """Управление колонками доски задач"""
 
     queryset = KanbanColumn.objects.prefetch_related('tasks__assignee', 'tasks__created_by').all()
@@ -29,8 +30,9 @@ class KanbanColumnViewSet(viewsets.ModelViewSet):
         return Response({'status': 'ok'})
 
 
-class KanbanTaskViewSet(viewsets.ModelViewSet):
+class KanbanTaskViewSet(SectorQuerysetMixin, viewsets.ModelViewSet):
     """Управление задачами"""
+    sector_field = 'column__sector'
 
     queryset = KanbanTask.objects.select_related(
         'column', 'assignee', 'created_by'

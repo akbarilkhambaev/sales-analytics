@@ -1,6 +1,6 @@
 from django.db.models import Sum, Q, F
 from django.db.models.functions import Substr
-from .utils import safe_kol_vo_sum, safe_uch_kol_vo_sum
+from .utils import safe_kol_vo_sum, safe_uch_kol_vo_sum, get_sale_sector_q
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets, status
@@ -27,6 +27,10 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Sale.objects.all()
     serializer_class = SaleSerializer
     permission_classes = [IsAuthenticated]  # Все аутентифицированные пользователи
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.filter(get_sale_sector_q(self.request.user))
     
     def get_permissions(self):
         """Разные права для разных действий"""
@@ -47,7 +51,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def warehouses(self, request):
         """Получить список складов"""
-        warehouses = Sale.objects.filter(
+        warehouses = self.get_queryset().filter(
             sklad__isnull=False
         ).exclude(sklad='').values_list('sklad', flat=True).distinct().order_by('sklad')
         return Response(list(warehouses))
@@ -63,7 +67,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def regions(self, request):
         """Получить список регионов"""
-        regions = Sale.objects.filter(
+        regions = self.get_queryset().filter(
             region__isnull=False
         ).exclude(region='').values_list('region', flat=True).distinct().order_by('region')
         return Response(list(regions))
@@ -95,7 +99,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         region = request.query_params.get('region', '')
 
         # Базовый queryset
-        queryset = Sale.objects.filter(kod_tovara__isnull=False).exclude(kod_tovara='')
+        queryset = self.get_queryset().filter(kod_tovara__isnull=False).exclude(kod_tovara='')
 
         # Применяем фильтры
         if month:
@@ -169,7 +173,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         region = request.query_params.get('region', '')
 
         # Базовый queryset
-        queryset = Sale.objects.filter(
+        queryset = self.get_queryset().filter(
             gruppa_tovara__isnull=False
         ).exclude(gruppa_tovara='')
 
@@ -249,7 +253,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         region = request.query_params.get('region', '')
         
         # Получаем данные с агрегацией по КОД_ТОВАРА, профиль_перечень и годам
-        queryset = Sale.objects.filter(
+        queryset = self.get_queryset().filter(
             kod_tovara__isnull=False,
             profil_perechen__isnull=False
         ).exclude(
@@ -331,7 +335,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         from collections import defaultdict
         
         # Получаем данные с агрегацией по ЦВЕТ, КОД_ТОВАРА и годам
-        queryset = Sale.objects.filter(
+        queryset = self.get_queryset().filter(
             cvet__isnull=False,
             kod_tovara__isnull=False
         ).exclude(
@@ -428,7 +432,7 @@ class SalesViewSet(viewsets.ReadOnlyModelViewSet):
         region = request.query_params.get('region', '')
         
         # Получаем данные с агрегацией по КОД_ТОВАРА, ЦВЕТ и годам
-        queryset = Sale.objects.filter(
+        queryset = self.get_queryset().filter(
             kod_tovara__isnull=False,
             cvet__isnull=False
         ).exclude(
@@ -528,7 +532,8 @@ class ClientsViewSet(viewsets.ViewSet):
             )
         
         # Базовый фильтр
-        queryset = ReadySale.objects.filter(klient__icontains=client)
+        sector_q = get_sale_sector_q(request.user)
+        queryset = ReadySale.objects.filter(sector_q, klient__icontains=client)
         
         # Фильтр по датам
         if start_date:
@@ -593,22 +598,23 @@ class ClientsViewSet(viewsets.ViewSet):
         selected_products = [p.strip() for p in products_param.split(',') if p.strip()] if products_param else []
         
         # Базовый запрос
-        queryset = ReadySale.objects.all()
-        
+        sector_q = get_sale_sector_q(request.user)
+        queryset = ReadySale.objects.filter(sector_q)
+
         # Фильтр по датам
         if start_date:
             queryset = queryset.filter(data__gte=start_date)
         if end_date:
             queryset = queryset.filter(data__lte=end_date)
-        
+
         # Фильтр по региону
         if region:
             queryset = queryset.filter(region=region)
-        
+
         # ВАЖНО: Фильтруем по товарам ДО группировки, чтобы топ считался только по выбранным товарам
         if selected_products:
             queryset = queryset.filter(tovary__in=selected_products)
-        
+
         # Группировка по клиентам
         clients = queryset.values('klient').annotate(
             total_weight=Sum('ves_kg')
@@ -681,18 +687,19 @@ class ClientsViewSet(viewsets.ViewSet):
         selected_clients = [c.strip() for c in clients_param.split(',') if c.strip()] if clients_param else []
         
         # Базовый запрос
-        queryset = ReadySale.objects.all()
-        
+        sector_q = get_sale_sector_q(request.user)
+        queryset = ReadySale.objects.filter(sector_q)
+
         # Фильтр по датам
         if start_date:
             queryset = queryset.filter(data__gte=start_date)
         if end_date:
             queryset = queryset.filter(data__lte=end_date)
-        
+
         # Фильтр по региону
         if region:
             queryset = queryset.filter(region=region)
-        
+
         # Группировка по товарам
         products = queryset.values('tovary').annotate(
             total_weight=Sum('ves_kg')
@@ -740,8 +747,8 @@ class ClientsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def products_list(self, request):
         """Список всех товаров"""
-        # Оптимизированный запрос с использованием индекса
-        products = ReadySale.objects.filter(
+        sector_q = get_sale_sector_q(request.user)
+        products = ReadySale.objects.filter(sector_q).filter(
             tovary__isnull=False
         ).exclude(
             tovary=''
@@ -756,8 +763,8 @@ class ClientsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def clients_list(self, request):
         """Список всех клиентов"""
-        # Оптимизированный запрос с использованием индекса
-        clients = ReadySale.objects.filter(
+        sector_q = get_sale_sector_q(request.user)
+        clients = ReadySale.objects.filter(sector_q).filter(
             klient__isnull=False
         ).exclude(
             klient=''
@@ -772,7 +779,8 @@ class ClientsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def regions_list(self, request):
         """Список всех регионов из таблицы ready_sales"""
-        regions = ReadySale.objects.filter(
+        sector_q = get_sale_sector_q(request.user)
+        regions = ReadySale.objects.filter(sector_q).filter(
             region__isnull=False
         ).exclude(
             region=''

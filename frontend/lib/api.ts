@@ -569,6 +569,65 @@ class ApiClient {
     }
   }
 
+  // ─── Sectors ─────────────────────────────────────────────────────────────────
+
+  async getSectors(): Promise<import('./types').Sector[]> {
+    const response = await fetch(`${this.baseUrl}/sectors/`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch sectors');
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data.results ?? []);
+  }
+
+  async createSector(data: { name: string; code: string; description?: string }): Promise<import('./types').Sector> {
+    const response = await fetch(`${this.baseUrl}/sectors/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.name?.[0] || err.code?.[0] || err.detail || 'Ошибка создания сектора');
+    }
+    return response.json();
+  }
+
+  async updateSector(id: number, data: Partial<{ name: string; code: string; description: string; is_active: boolean; gruppa_filters: string[] }>): Promise<import('./types').Sector> {
+    const response = await fetch(`${this.baseUrl}/sectors/${id}/`, {
+      method: 'PATCH',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'Ошибка обновления сектора');
+    }
+    return response.json();
+  }
+
+  async toggleSectorActive(id: number): Promise<import('./types').Sector> {
+    const response = await fetch(`${this.baseUrl}/sectors/${id}/toggle-active/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Ошибка переключения статуса сектора');
+    return response.json();
+  }
+
+  async updateUserSector(userId: number, sectorId: number | null): Promise<import('./types').UserData> {
+    const response = await fetch(`${this.baseUrl}/auth/users/${userId}/`, {
+      method: 'PATCH',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ sector_id: sectorId }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'Ошибка назначения сектора');
+    }
+    return response.json();
+  }
+
   async getLoginLogs(userId?: number): Promise<import('./types').UserLoginLog[]> {
     const params = userId ? `?user_id=${userId}` : '';
     const response = await fetch(`${this.baseUrl}/auth/login-logs/${params}`, {

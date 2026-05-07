@@ -6,10 +6,11 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Sum
 from .models import ClientCard, ReadySale
 from .serializers import ClientCardSerializer
+from .utils import SectorQuerysetMixin, get_sale_sector_q
 from authentication.permissions import IsManagerOrAdmin
 
 
-class ClientCardViewSet(viewsets.ModelViewSet):
+class ClientCardViewSet(SectorQuerysetMixin, viewsets.ModelViewSet):
     """
     ViewSet для управления карточками клиентов.
     
@@ -74,7 +75,8 @@ class ClientCardViewSet(viewsets.ModelViewSet):
         client_card = self.get_object()
         
         # Получаем все закупки этого клиента
-        sales = ReadySale.objects.filter(klient=client_card.client_name)
+        sector_q = get_sale_sector_q(request.user)
+        sales = ReadySale.objects.filter(sector_q, klient=client_card.client_name)
         
         # Группируем по ТОВАРЫ и годам
         tovary_data = {}

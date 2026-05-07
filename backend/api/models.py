@@ -1,6 +1,42 @@
 from django.db import models
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Sector (Мультисекторная система)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class Sector(models.Model):
+    """Сектор — изолированная рабочая зона (отдел/команда)"""
+
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название')
+    code = models.SlugField(max_length=50, unique=True, verbose_name='Код (slug)')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    gruppa_filters = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Фильтр по группам товара',
+        help_text='Список значений gruppa_tovara для этого сектора. Пусто = видеть все данные.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        'auth.User',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sectors_created',
+        verbose_name='Создал',
+    )
+
+    class Meta:
+        db_table = 'sectors'
+        verbose_name = 'Сектор'
+        verbose_name_plural = 'Секторы'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Sale(models.Model):
     """Модель продаж"""
     
@@ -500,6 +536,14 @@ class ExpenseCategory(models.Model):
         verbose_name="Дата создания"
     )
 
+    sector = models.ForeignKey(
+        'Sector',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='expense_categories',
+        verbose_name='Сектор',
+    )
+
     class Meta:
         db_table = 'expense_categories'
         verbose_name = 'Категория расхода'
@@ -582,6 +626,14 @@ class Expense(models.Model):
         verbose_name="Дата изменения"
     )
 
+    sector = models.ForeignKey(
+        'Sector',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='expenses',
+        verbose_name='Сектор',
+    )
+
     class Meta:
         db_table = 'expenses'
         verbose_name = 'Расход'
@@ -656,6 +708,14 @@ class WorkReport(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name="Дата изменения"
+    )
+
+    sector = models.ForeignKey(
+        'Sector',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='work_reports',
+        verbose_name='Сектор',
     )
 
     class Meta:
@@ -858,6 +918,14 @@ class ClientCard(models.Model):
         verbose_name="Дата изменения"
     )
 
+    sector = models.ForeignKey(
+        'Sector',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='client_cards',
+        verbose_name='Сектор',
+    )
+
     class Meta:
         db_table = 'client_cards'
         verbose_name = 'Карточка клиента'
@@ -999,6 +1067,14 @@ class KanbanColumn(models.Model):
     color = models.CharField(max_length=20, choices=COLOR_CHOICES, default='gray', verbose_name='Цвет')
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    sector = models.ForeignKey(
+        'Sector',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='kanban_columns',
+        verbose_name='Сектор',
+    )
 
     class Meta:
         db_table = 'kanban_columns'
@@ -1152,6 +1228,14 @@ class KPIRecord(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    sector = models.ForeignKey(
+        'Sector',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='kpi_records',
+        verbose_name='Сектор',
+    )
 
     class Meta:
         db_table = 'kpi_records'
