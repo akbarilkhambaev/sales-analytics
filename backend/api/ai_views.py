@@ -35,25 +35,7 @@ class AIChatView(APIView):
             {"role": "user", "content": message},
         ]
 
-        try:
-            resp = httpx.post(
-                OLLAMA_URL,
-                json={"model": MODEL_NAME, "messages": messages, "stream": False},
-                timeout=120.0,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            reply = data["message"]["content"]
-            return Response({"reply": reply})
-        except httpx.ConnectError:
-            return Response(
-                {"error": "Сервис AI недоступен. Убедитесь, что Ollama запущен."},
-                status=503,
-            )
-        except httpx.TimeoutException:
-            return Response(
-                {"error": "Превышено время ожидания ответа от AI. Попробуйте ещё раз."},
-                status=504,
-            )
-        except Exception as e:
-            return Response({"error": f"Ошибка AI: {str(e)}"}, status=500)
+        return Response(
+            {"error": "AI-чат временно отключён. Модель не установлена на сервере."},
+            status=503,
+        )

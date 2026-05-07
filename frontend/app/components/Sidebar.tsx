@@ -30,6 +30,7 @@ import {
   Swords,
   Activity,
   Bot,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -197,6 +198,22 @@ export default function Sidebar() {
         >
           <MapPin className={`w-4 h-4 shrink-0 ${pathname === '/' ? 'text-blue-600' : 'text-gray-400'}`} />
           {!collapsed && <span>Карта продаж</span>}
+        </Link>
+
+        {/* Мой кабинет — для всех ролей */}
+        <Link
+          href="/my"
+          className={`
+            flex items-center gap-3 px-2 py-2 rounded-lg text-sm transition-colors mt-0.5
+            ${pathname === '/my'
+              ? 'bg-violet-50 text-violet-700 font-medium'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+            ${collapsed ? 'justify-center' : ''}
+          `}
+          title={collapsed ? 'Мой кабинет' : undefined}
+        >
+          <LayoutDashboard className={`w-4 h-4 shrink-0 ${pathname === '/my' ? 'text-violet-600' : 'text-gray-400'}`} />
+          {!collapsed && <span>Мой кабинет</span>}
         </Link>
       </div>
 

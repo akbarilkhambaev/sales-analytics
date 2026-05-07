@@ -24,6 +24,7 @@ from .configurator_views import (
 )
 from .monitor_views import ServerMonitorView
 from .ai_views import AIChatView
+from .my_dashboard_view import MyDashboardView
 
 router = DefaultRouter()
 router.register(r'sales', SalesViewSet, basename='sales')
@@ -76,4 +77,5 @@ urlpatterns = [
     path('kpi/managers/', KPIManagersView.as_view(), name='kpi-managers'),
     path('monitor/', ServerMonitorView.as_view(), name='server-monitor'),
     path('ai/chat/', AIChatView.as_view(), name='ai-chat'),
+    path('my/dashboard/', MyDashboardView.as_view(), name='my-dashboard'),
 ]

@@ -143,11 +143,11 @@ export default function PlanFactPage() {
         <td className={`px-3 py-2 text-sm text-center ${type === 'normal' ? pctClass(row.diff_pct_sales) : ''}`}>{fmtPct(row.diff_pct_sales)}</td>
         <td className="px-3 py-2 text-sm text-right tabular-nums">{fmt(row.sales_curr)}</td>
         <td className={`px-3 py-2 text-sm text-center ${type === 'normal' ? pctClass(row.diff_pct_plan) : ''}`}>{fmtPct(row.diff_pct_plan)}</td>
-        <td className="px-3 py-2 text-sm text-right tabular-nums text-blue-300">{fmt(row.plan_period)}</td>
-        <td className="px-3 py-2 text-sm text-right tabular-nums text-blue-200">{fmt(row.plan_monthly)}</td>
-        <td className="px-3 py-2 text-sm text-right tabular-nums text-orange-300">{fmt(row.sellout_prev)}</td>
+        <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-900">{fmt(row.plan_period)}</td>
+        <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-900">{fmt(row.plan_monthly)}</td>
+        <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-900">{fmt(row.sellout_prev)}</td>
         <td className={`px-3 py-2 text-sm text-center ${type === 'normal' ? pctClass(row.diff_pct_sellout_prev) : ''}`}>{fmtPct(row.diff_pct_sellout_prev)}</td>
-        <td className="px-3 py-2 text-sm text-right tabular-nums text-orange-200">{fmt(row.sellout_curr)}</td>
+        <td className="px-3 py-2 text-sm text-right tabular-nums text-gray-900">{fmt(row.sellout_curr)}</td>
         <td className={`px-3 py-2 text-sm text-center ${type === 'normal' ? pctClass(row.diff_pct_sellout_curr) : ''}`}>{fmtPct(row.diff_pct_sellout_curr)}</td>
       </tr>
     );
@@ -301,24 +301,24 @@ export default function PlanFactPage() {
                       <span className="font-normal opacity-75">{data.labels.sales_curr}</span>
                     </th>
                     <th className="px-3 py-3 text-center whitespace-nowrap">% к плану</th>
-                    <th className="px-3 py-3 text-right whitespace-nowrap text-blue-300">
+                    <th className="px-3 py-3 text-right whitespace-nowrap text-white">
                       {'ПЛАН (пер.)'}<br/>
                       <span className="font-normal opacity-75">{data.labels.plan}</span>
                     </th>
-                    <th className="px-3 py-3 text-right whitespace-nowrap text-blue-200">
+                    <th className="px-3 py-3 text-right whitespace-nowrap text-white">
                       {'ПЛАН (мес.)'}<br/>
                       <span className="font-normal opacity-75">{data.labels.plan_monthly}</span>
                     </th>
-                    <th className="px-3 py-3 text-right whitespace-nowrap text-orange-300">
+                    <th className="px-3 py-3 text-right whitespace-nowrap text-white">
                       SELLOUT<br/>
                       <span className="font-normal opacity-75">{data.labels.sellout_prev}</span>
                     </th>
-                    <th className="px-3 py-3 text-center whitespace-nowrap text-orange-300">% к пр.<br/><span className="font-normal opacity-75">{data.labels.sellout_prev}</span></th>
-                    <th className="px-3 py-3 text-right whitespace-nowrap text-orange-200">
+                    <th className="px-3 py-3 text-center whitespace-nowrap text-white">% к пр.<br/><span className="font-normal opacity-75">{data.labels.sellout_prev}</span></th>
+                    <th className="px-3 py-3 text-right whitespace-nowrap text-white">
                       SELLOUT<br/>
                       <span className="font-normal opacity-75">{data.labels.sellout_curr}</span>
                     </th>
-                    <th className="px-3 py-3 text-center whitespace-nowrap text-orange-200">% к пр.<br/><span className="font-normal opacity-75">{data.labels.sellout_curr}</span></th>
+                    <th className="px-3 py-3 text-center whitespace-nowrap text-white">% к пр.<br/><span className="font-normal opacity-75">{data.labels.sellout_curr}</span></th>
                   </tr>
                 </thead>
                 <tbody>
